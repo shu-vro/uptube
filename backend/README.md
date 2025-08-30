@@ -1,51 +1,79 @@
 # Backend API Project
 
-This project is a backend API built with TypeScript. It serves as the main entry point for handling requests and managing data interactions.
+This project is a backend API built with TypeScript. It provides the core functionality for handling requests, managing data, and serving as the backend for the application.
 
 ## Project Structure
 
-- **src/**: Contains the source code for the application.
-  - **app.ts**: Initializes the application and sets up middleware.
-  - **server.ts**: Configures the server and listens for incoming requests.
-  - **config/**: Contains configuration files for the application.
-    - **cors/**: CORS configuration.
-    - **env/**: Environment variable loading.
-    - **logger/**: Logger setup using Pino.
-  - **lib/**: Utility functions and libraries.
-    - **async/**: Asynchronous utility functions.
-    - **hash/**: Hashing functions for secure data handling.
-    - **token/**: Functions for generating and verifying tokens.
-  - **middlewares/**: Middleware functions for handling requests.
-    - **auth/**: Authentication middleware.
-    - **error/**: Error handling middleware.
-  - **modules/**: Contains different modules of the application.
-    - **common/**: Common controllers.
-    - **user/**: User-related controllers, routers, and validators.
-  - **routes/**: Main application routes.
-  - **types/**: Type definitions used throughout the application.
-  - **utils/**: Utility functions for error handling and response formatting.
-
-- **scripts/**: Contains scripts for database operations.
-  - **db/**: Database seeding scripts.
-
-- **prisma/**: Contains the Prisma schema for database interactions.
+### Root Directory
 
 - **.env.sample**: Sample environment configuration file.
-
-- **.gitignore**: Specifies files to be ignored by version control.
-
+- **.gitignore**: Specifies files and directories to be ignored by Git.
 - **app.config.json**: Application-specific configuration settings.
-
+- **bun.lock**: Lock file for Bun package manager.
+- **index.ts**: Entry point for the application.
 - **package.json**: Lists project dependencies and scripts.
-
+- **README.md**: Documentation for the project.
 - **tsconfig.json**: TypeScript configuration file.
+
+### `src/` Directory
+
+Contains the source code for the application.
+
+#### **app.ts**
+
+- Initializes the application and sets up middleware.
+
+#### **server.ts**
+
+- Configures the server and listens for incoming requests.
+
+#### **config/**
+
+- **cors/**: CORS configuration.
+- **env/**: Environment variable loading.
+- **FLAGS/**: Feature flag configuration.
+- **helmet/**: Helmet security configuration.
+- **logger/**: Logger setup using Pino.
+
+#### **middlewares/**
+
+- **auth/**: Authentication middleware.
+- **error/**: Error handling middleware (e.g., global error handler, validation).
+
+#### **modules/**
+
+- **common/**: Common controllers and utilities.
+  - **controllers/**: Contains shared controllers.
+- **user/**: User-related functionality.
+  - **controllers/**: User-specific controllers.
+  - **routers/**: User-specific routes.
+  - **validators/**: User-specific validation schemas.
+
+#### **routes/**
+
+- **adminRouter.route.ts**: Routes for admin-related functionality.
+- **app.route.ts**: Main application routes.
+- **protectedRouter.route.ts**: Routes requiring authentication.
+- **unprotectedRouter.route.ts**: Publicly accessible routes.
+
+#### **types/**
+
+- **global.d.ts**: Global type definitions.
+- **common/**: Common type definitions.
+- **error/**: Error-related type definitions.
+- **request/**: Request-related type definitions.
+
+#### **utils/**
+
+- **auth-utils/**: Utility functions for authentication (e.g., token handling).
+- **error/**: Utility functions for error handling (e.g., `ApiError` class).
 
 ## Getting Started
 
 1. Clone the repository.
-2. Install dependencies using `npm install` or `yarn install`.
+2. Install dependencies using `bun install` or `npm install`.
 3. Set up your environment variables by copying `.env.sample` to `.env` and updating the values.
-4. Run the application using `npm start` or `yarn start`.
+4. Run the application using `bun run start` or `npm start`.
 
 ## License
 
