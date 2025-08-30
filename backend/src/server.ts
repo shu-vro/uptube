@@ -19,8 +19,20 @@ server.listen(PORT, () => {
   logger.info(`Server is running on http://localhost:${PORT}`);
 });
 
-const shutdown = () => {
+let isShuttingDown = false;
+
+const shutdown = async () => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
   logger.info("Gracefully shutting down...");
+  await prisma
+    .$disconnect()
+    .then(() => {
+      logger.info("Database connection closed.");
+    })
+    .catch((error) => {
+      logger.error("Error closing database connection:", error);
+    });
   server.close((err) => {
     if (err) {
       logger.error(
