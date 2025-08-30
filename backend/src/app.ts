@@ -5,6 +5,7 @@ import errorHandler from "./middlewares/error/global";
 import { validateRequest } from "./middlewares/error/validation";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import { User } from "generated/prisma"; // Adjust the path if necessary
 
 const app = express();
 
@@ -13,6 +14,7 @@ declare global {
     interface Request {
       _success: (json: any, status?: number) => void;
       _error: (message: any, status?: number) => void;
+      user?: User | null;
     }
   }
 }

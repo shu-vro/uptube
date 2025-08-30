@@ -1,21 +1,50 @@
 import { Request } from "express";
+import { PrismaClient } from "generated/prisma";
+import { asyncHandler } from "utils/async-handler";
+import { passwordHash } from "utils/auth-utils";
 
-export const getUser = (req: Request) => {
-  // Logic to get a user by ID
-  req._success("Get user by ID");
-};
+const prisma = new PrismaClient();
 
-export const createUser = (req: Request) => {
-  // Logic to create a new user
-  req._success("User created");
-};
+export const getUser = asyncHandler(async (req: Request) => {
+  const userId = req.params.id;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+  req._success(user);
+});
 
-export const updateUser = (req: Request) => {
-  // Logic to update a user by ID
-  req._success("User updated");
-};
+export const createUser = asyncHandler(async (req: Request) => {
+  const { email, name, password } = req.body;
+  const user = await prisma.user.create({
+    data: {
+      email,
+      name,
+      password,
+    },
+  });
+  req._success(user, 201);
+});
 
-export const deleteUser = (req: Request) => {
-  // Logic to delete a user by ID
-  req._success("User deleted");
-};
+export const updateUser = asyncHandler(async (req: Request) => {
+  const userId = req.params.id;
+  const { email, name, password } = req.body;
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      email,
+      name,
+      password: await passwordHash(password),
+    },
+  });
+
+  // req.cookies.user =
+  req._success(user, 200);
+});
+
+export const deleteUser = asyncHandler(async (req: Request) => {
+  const userId = req.params.id;
+  await prisma.user.delete({
+    where: { id: userId },
+  });
+  req._success("User deleted", 204);
+});

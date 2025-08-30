@@ -1,0 +1,6 @@
+{
+  "dependencies": {},
+  "devDependencies": {
+    "jsonwebtoken": "^9.0.2"
+  }
+}
