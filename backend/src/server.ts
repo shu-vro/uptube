@@ -1,10 +1,11 @@
 import { createServer } from "http";
 import app from "./app";
 import logger from "./config/logger/pino.logger";
+import ENV from "./config/env";
 
 const server = createServer(app);
 
-const PORT = process.env.PORT || 3000;
+const PORT = ENV.PORT;
 
 server.listen(PORT, () => {
   logger.info(`Server is running on http://localhost:${PORT}`);
