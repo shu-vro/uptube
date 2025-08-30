@@ -7,12 +7,10 @@ export const getUser = asyncHandler(async (req: Request) => {
   const userId = req.params.id;
   const user = await prisma.user.findUnique({
     where: { id: userId },
+    omit: {
+      password: true,
+    },
   });
-  if (user) {
-    const { password, ...userWithoutPassword } = user;
-    req._success(userWithoutPassword);
-    return;
-  }
   req._success(user);
 });
 
@@ -24,13 +22,18 @@ export const createUser = asyncHandler(async (req: Request) => {
       name,
       password: await passwordHash(password),
     },
+    omit: {
+      password: true,
+    },
   });
-  const { password: _password, ...userWithoutPassword } = user;
-  req._success(userWithoutPassword, 201);
+  req._success(user, 201);
 });
 
 export const updateUser = asyncHandler(async (req: Request) => {
   const userId = req.params.id;
+  if (req.user?.id !== userId) {
+    return req._error("Unauthorized", 403);
+  }
   const { email, name, password } = req.body;
   const user = await prisma.user.update({
     where: { id: userId },
@@ -39,16 +42,21 @@ export const updateUser = asyncHandler(async (req: Request) => {
       name,
       password: await passwordHash(password),
     },
+    omit: {
+      password: true,
+    },
   });
 
-  const { password: _password, ...userWithoutPassword } = user;
-  req._success(userWithoutPassword, 200);
+  req._success(user);
 });
 
 export const deleteUser = asyncHandler(async (req: Request) => {
   const userId = req.params.id;
+  if (req.user?.id !== userId) {
+    return req._error("Unauthorized", 403);
+  }
   await prisma.user.delete({
     where: { id: userId },
   });
-  req._success("User deleted", 200);
+  req._success("User deleted");
 });
