@@ -5,7 +5,7 @@ import errorHandler from "./middlewares/error/global";
 import { validateRequest } from "./middlewares/error/validation";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
-import { User } from "generated/prisma"; // Adjust the path if necessary
+import { User } from "generated/prisma";
 
 const app = express();
 
@@ -30,6 +30,7 @@ app.use(
 );
 app.use(express.urlencoded({ extended: true }));
 app.use(validateRequest);
+// app.use(limiter);
 app.use((req, res, next) => {
   req._success = (json: any, status?: number) => {
     res.status(status || 200).json({

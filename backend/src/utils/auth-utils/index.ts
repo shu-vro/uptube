@@ -1,7 +1,8 @@
 import bcrypt from "bcryptjs";
 
-export function getBearerToken(cookies: any, field = "user") {
-  const token = cookies?.[field];
+export function getBearerToken(authHeader?: string) {
+  if (!authHeader) return null;
+  const token = authHeader;
   if (!token) return null;
   if (!token.startsWith("Bearer ")) return null;
   return token.slice(7);

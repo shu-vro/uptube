@@ -8,13 +8,12 @@ export const authenticate = (
   next: NextFunction
 ) => {
   const cookies = req.cookies;
-  const token = getBearerToken(cookies);
+  const token = getBearerToken(req.headers.authorization) || cookies?.user;
   const data = verifyToken(token);
-  if (!data) {
-    req.user = null;
-  }
   // TODO: find user by id
-  if (!token) {
+
+  if (!token || !data) {
+    res.clearCookie("user");
     return req._error("Unauthorized", 401);
   }
   next();
