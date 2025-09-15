@@ -1,5 +1,5 @@
 import { Router } from "express";
-import userRouter from "../modules/user/routers/user.protected.route";
+import userRouter from "@/modules/user/routers/user.protected.route";
 import { authenticate } from "middlewares/auth";
 
 const router = Router();

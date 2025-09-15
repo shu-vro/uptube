@@ -1,11 +1,10 @@
 import { Request } from "express";
 import { asyncHandler } from "utils/async-handler";
 import { passwordHash } from "utils/auth-utils";
-const prisma = global.prisma;
 
 export const getUser = asyncHandler(async (req: Request) => {
   const userId = req.params.id;
-  const user = await prisma.user.findUnique({
+  const user = await global.prisma.user.findUnique({
     where: { id: userId },
     omit: {
       password: true,
@@ -16,7 +15,7 @@ export const getUser = asyncHandler(async (req: Request) => {
 
 export const createUser = asyncHandler(async (req: Request) => {
   const { email, name, password } = req.body;
-  const user = await prisma.user.create({
+  const user = await global.prisma.user.create({
     data: {
       email,
       name,
@@ -35,7 +34,7 @@ export const updateUser = asyncHandler(async (req: Request) => {
     return req._error("Unauthorized", 403);
   }
   const { email, name, password } = req.body;
-  const user = await prisma.user.update({
+  const user = await global.prisma.user.update({
     where: { id: userId },
     data: {
       email,
@@ -55,7 +54,7 @@ export const deleteUser = asyncHandler(async (req: Request) => {
   if (req.user?.id !== userId) {
     return req._error("Unauthorized", 403);
   }
-  await prisma.user.delete({
+  await global.prisma.user.delete({
     where: { id: userId },
   });
   req._success("User deleted");

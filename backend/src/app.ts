@@ -6,6 +6,7 @@ import { validateRequest } from "./middlewares/error/validation";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { User } from "generated/prisma";
+import morgan from "morgan";
 
 const app = express();
 
@@ -20,6 +21,7 @@ declare global {
 }
 
 // Middleware setup
+app.use(morgan("combined"));
 app.use(helmet());
 app.use(cors());
 app.use(cookieParser());

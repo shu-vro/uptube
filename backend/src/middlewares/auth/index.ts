@@ -16,7 +16,9 @@ export const authenticate = async (
     return req._error("Unauthorized", 401);
   }
 
-  const user = await global.prisma.user.findUnique({ where: { id: data?.id } });
+  const user = await global.global.prisma.user.findUnique({
+    where: { id: data?.id },
+  });
 
   if (!user) {
     res.clearCookie("user");

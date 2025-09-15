@@ -8,6 +8,7 @@ const ENV = Object.freeze({
   DATABASE_URL: process.env.DATABASE_URL || "",
   JWT_SECRET: process.env.JWT_SECRET || "JWT_TOKEN",
   JWT_ADMIN_SECRET: process.env.JWT_ADMIN_SECRET || "JWT_ADMIN_TOKEN",
+  JWT_ENCRYPTION_KEY: process.env.JWT_ENCRYPTION_KEY || "JWT_ENCRYPTION_KEY",
   CORS_ORIGIN: process.env.CORS_ORIGIN || "*",
   LOG_LEVEL: process.env.LOG_LEVEL || "info",
 });
