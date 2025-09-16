@@ -23,3 +23,45 @@ model User {
   updatedAt DateTime @updatedAt
   extra     Json?
 }
+
+model Video {
+  id                String      @id @default(cuid())
+  title             String
+  channel_id        String
+  short_description String?
+  duration          Int
+  keywords          String[]
+  thumbnail         Thumbnail[] @relation("VideoToThumbnails")
+  view_count        Int
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  extra             Json?
+
+  creator Creator @relation(fields: [channel_id], references: [external_id])
+}
+
+// should save only 1, because the urls are the same
+model Thumbnail {
+  id         String   @id @default(cuid())
+  video_id   String?
+  creator_id String?
+  width      Int
+  height     Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  extra      Json?
+
+  video   Video?   @relation("VideoToThumbnails", fields: [video_id], references: [id])
+  creator Creator? @relation(fields: [creator_id], references: [id])
+}
+
+model Creator {
+  id                 String      @id @default(cuid())
+  title              String
+  external_id        String      @unique
+  description        String?
+  url                String
+  vanity_channel_url String?
+  avatar             Thumbnail[]
+  Video              Video[]
+}

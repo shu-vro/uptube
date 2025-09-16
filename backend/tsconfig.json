@@ -12,7 +12,8 @@
     "baseUrl": "./src",
     "paths": {
       "*": ["node_modules/*", "*"],
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@utils/*": ["./utils/*"]
     }
   },
   "include": ["src/**/*.ts", "src/types/global.d.ts"],

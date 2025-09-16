@@ -1,16 +1,40 @@
+import logger from "config/logger/pino.logger";
+import { Request } from "express";
+import { asyncHandler } from "utils/async-handler";
 import { Innertube, UniversalCache } from "youtubei.js";
+import { sanitizeYtUrl } from "utils/yt";
 
 export const yt = await Innertube.create({
   cache: new UniversalCache(true, "./.cache"),
   cookie: `VISITOR_INFO1_LIVE=4P9NKvf2tVA; VISITOR_PRIVACY_METADATA=CgJCRBIEGgAgWg%3D%3D; LOGIN_INFO=AFmmF2swRQIga7voSrekRhRfpv6Jyhz3bYTtFHCthMuhuw0AJtZQYHMCIQDxsprw4k2ArphELi2o70OW8XsVTFhqYsHt87fo769lxA:QUQ3MjNmd1p2MlBicWZJa2d1Zy1oelNUeDBWc1FxOEU4RmxibVhaZm5mUVF5TjVSLTNnbFZQMDdYRUpUaHNHdXhjSHd2bGRFd0h2bl9Kc3lLME1HdkxPeTJ5QlFmYVJtS2JoWFhMOWEtSnhzQTJ1QXlNTzFNQTVrcUQyMkhwWEozZVo0OHBITUVzSGdsQjhwZTJ2NVBxQkJHRjN4cno1eENn; SID=g.a0000ggRxdNpTyVT3qbJRVCvWdeP7fI9PVq9Z_2K6BJ1jhTi_Xv1M-UIxuZkROlbYqGw6gE4vwACgYKAf8SARASFQHGX2MiXqkMEoyrsE2sEoO2xtP3KBoVAUF8yKpFnNP6JzNZs7xF_OA29SOF0076; __Secure-1PSID=g.a0000ggRxdNpTyVT3qbJRVCvWdeP7fI9PVq9Z_2K6BJ1jhTi_Xv1bryZ6AIq9ReQ7ci8zo9NNQACgYKAUQSARASFQHGX2MiL8-vUcMQNpIsr-EinBtT3BoVAUF8yKpQruvqLcipbCiqHv_s6TP80076; __Secure-3PSID=g.a0000ggRxdNpTyVT3qbJRVCvWdeP7fI9PVq9Z_2K6BJ1jhTi_Xv1pmSG-AXSmbTaMDbyIkyL-wACgYKAdISARASFQHGX2MiilhZ1FUZZwBE8sXbOjj6-hoVAUF8yKrXXmuDZrfhlwadO4IqJE7n0076; HSID=AxMCylDk2VtP_Bmq5; SSID=AJKz1fz4ahtZXcI0q; APISID=E1VwAZ2tdPzn5HBX/Awh7DAgw2BAYzGZ5_; SAPISID=igUkjXf4LADMhgoG/A1LYfJmf_DUkh1HR0; __Secure-1PAPISID=igUkjXf4LADMhgoG/A1LYfJmf_DUkh1HR0; __Secure-3PAPISID=igUkjXf4LADMhgoG/A1LYfJmf_DUkh1HR0; PREF=f6=40000000&tz=Asia.Dhaka&f7=150; __Secure-ROLLOUT_TOKEN=CPnZ2KaxyPK32QEQ_arN9u_0jgMYx436rL3ajwM%3D; __Secure-1PSIDTS=sidts-CjUBmkD5S9fmlDH95-NbzwI-AEI4qVQX1XvtAmiPJhLqZmyGylxOKRnanqb9IMnDUNhd1llACRAA; __Secure-3PSIDTS=sidts-CjUBmkD5S9fmlDH95-NbzwI-AEI4qVQX1XvtAmiPJhLqZmyGylxOKRnanqb9IMnDUNhd1llACRAA; YSC=eyZjubYa5Z8; wide=0; ST-3opvp5=session_logininfo=AFmmF2swRQIga7voSrekRhRfpv6Jyhz3bYTtFHCthMuhuw0AJtZQYHMCIQDxsprw4k2ArphELi2o70OW8XsVTFhqYsHt87fo769lxA%3AQUQ3MjNmd1p2MlBicWZJa2d1Zy1oelNUeDBWc1FxOEU4RmxibVhaZm5mUVF5TjVSLTNnbFZQMDdYRUpUaHNHdXhjSHd2bGRFd0h2bl9Kc3lLME1HdkxPeTJ5QlFmYVJtS2JoWFhMOWEtSnhzQTJ1QXlNTzFNQTVrcUQyMkhwWEozZVo0OHBITUVzSGdsQjhwZTJ2NVBxQkJHRjN4cno1eENn; SIDCC=AKEyXzVXlRN5l_YKHBqufaPDiBGzoruoOzBWhO7pY5KEKYPgza2HuRTD2hsU52MVsaiaxrw-SQ; __Secure-1PSIDCC=AKEyXzVOeKpCBhYEbWSXnrPN4YCEPvNVWIsnXgKYNkFqpGEgbN3X2_MiGbcoOIiQkUMRoDz2alc; __Secure-3PSIDCC=AKEyXzVzR4OUskdz0ghoEcDQv7sU3YcdQowO1yEinVCFVsvIZ8ZdEljJJ3QIF-bJjC4MkmGjM0w`,
 });
 
-export async function getVideoInfo(videoId: string) {
+export const getVideoInfo = asyncHandler(async (req: Request) => {
+  const videoId = sanitizeYtUrl(req.query.id as string);
+  if (!videoId) {
+    return req._error("Invalid video ID");
+  }
   const videoInfo = await yt.actions.execute("/player", {
     videoId,
     client: "YTMUSIC", // InnerTube client to use. only get necessary info
     parse: true, // tells YouTube.js to parse the response (not sent to InnerTube).
   });
 
-  return videoInfo;
-}
+  req._success(videoInfo);
+});
+
+// https://www.youtube.com/watch?v=m6qieXZsgwo&t=3s
+export const searchVideos = asyncHandler(async (req: Request) => {
+  const query = req.query.q as string;
+  const videoInfo = await yt.actions.execute("/search", {
+    parse: true,
+    query,
+  });
+
+  req._success(videoInfo);
+});
+
+export const doSomething = asyncHandler(async (req: Request) => {
+  const info = await yt.getChannel("UC6ZVQBJ00cRkZSnbOZEmCkA");
+  req._success(info);
+});

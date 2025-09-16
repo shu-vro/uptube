@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "bun src/server.ts",
-    "dev": "bun --watch src/server.ts",
+    "dev": "bun --watch --no-clear-screen src/server.ts",
     "build": "bun build",
     "check": "tsc --noEmit",
     "test": "bun test"

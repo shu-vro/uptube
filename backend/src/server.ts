@@ -5,6 +5,13 @@ import ENV from "./config/env";
 import prisma from "utils/db/prisma";
 import type { PrismaClient } from "generated/prisma";
 
+console.log(`
+▗▖ ▗▖▗▄▄▖▗▄▄▄▖▗▖ ▗▖▗▄▄▖ ▗▄▄▄▖
+▐▌ ▐▌▐▌ ▐▌ █  ▐▌ ▐▌▐▌ ▐▌▐▌
+▐▌ ▐▌▐▛▀▘  █  ▐▌ ▐▌▐▛▀▚▖▐▛▀▀▘
+▝▚▄▞▘▐▌    █  ▝▚▄▞▘▐▙▄▞▘▐▙▄▄▖
+`);
+
 declare global {
   var prisma: PrismaClient;
 }

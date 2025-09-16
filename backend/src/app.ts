@@ -21,7 +21,7 @@ declare global {
 }
 
 // Middleware setup
-app.use(morgan("combined"));
+app.use(morgan("short"));
 app.use(helmet());
 app.use(cors());
 app.use(cookieParser());
