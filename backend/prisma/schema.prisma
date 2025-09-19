@@ -21,7 +21,7 @@ model User {
   password  String // hashed
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  extra     Json?
+  extra     Json?    @default("{}")
 }
 
 model Video {
@@ -34,7 +34,7 @@ model Video {
   view_count        Int
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
-  extra             Json?
+  extra             Json?       @default("{}")
 
   creator Creator @relation(fields: [channel_id], references: [id])
 }
@@ -48,7 +48,7 @@ model Thumbnail {
   height     Int
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  extra      Json?
+  extra      Json?    @default("{}")
 
   video   Video?   @relation("VideoToThumbnails", fields: [video_id], references: [id])
   creator Creator? @relation(fields: [creator_id], references: [id])
@@ -64,5 +64,5 @@ model Creator {
   Videos             Video[]
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
-  extra              Json?
+  extra              Json?       @default("{}")
 }
