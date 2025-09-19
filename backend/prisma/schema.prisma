@@ -30,14 +30,13 @@ model Video {
   channel_id        String
   short_description String?
   duration          Int
-  keywords          String[]
-  thumbnail         Thumbnail[] @relation("VideoToThumbnails")
+  thumbnails        Thumbnail[] @relation("VideoToThumbnails")
   view_count        Int
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
   extra             Json?
 
-  creator Creator @relation(fields: [channel_id], references: [external_id])
+  creator Creator @relation(fields: [channel_id], references: [id])
 }
 
 // should save only 1, because the urls are the same
@@ -58,10 +57,12 @@ model Thumbnail {
 model Creator {
   id                 String      @id @default(cuid())
   title              String
-  external_id        String      @unique
   description        String?
   url                String
   vanity_channel_url String?
-  avatar             Thumbnail[]
-  Video              Video[]
+  avatars            Thumbnail[]
+  Videos             Video[]
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  extra              Json?
 }
