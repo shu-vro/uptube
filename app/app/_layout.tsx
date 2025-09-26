@@ -14,6 +14,7 @@ export {
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
+  console.log('hi from root layout', colorScheme);
 
   return (
     <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>

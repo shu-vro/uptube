@@ -154,6 +154,27 @@ export const searchVideos = asyncHandler(async (req: Request) => {
   req._success(createdVideos);
 });
 
+export const home = asyncHandler(async (req: Request) => {
+  const page = req.query?.page ? parseInt(req.query.page as string, 10) : 1;
+  const limit = req.query?.limit ? parseInt(req.query.limit as string, 10) : 20;
+  const videos = await prisma.video.findMany({
+    take: limit,
+    skip: (page - 1) * limit,
+    orderBy: {
+      view_count: "desc",
+    },
+    include: {
+      creator: {
+        include: {
+          avatars: true,
+        },
+      },
+      thumbnails: true,
+    },
+  });
+  req._success(videos);
+});
+
 // const info = await yt.getSearchSuggestions("linear algebra");
 // const info = await yt.getHashtag("game");
 // const info = await yt.resolveURL(
