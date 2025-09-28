@@ -50,8 +50,8 @@ model Thumbnail {
   updatedAt  DateTime @updatedAt
   extra      Json?    @default("{}")
 
-  video   Video?   @relation("VideoToThumbnails", fields: [video_id], references: [id])
-  creator Creator? @relation(fields: [creator_id], references: [id])
+  video   Video?   @relation("VideoToThumbnails", fields: [video_id], references: [id], onDelete: Cascade)
+  creator Creator? @relation(fields: [creator_id], references: [id], onDelete: Cascade)
 }
 
 model Creator {

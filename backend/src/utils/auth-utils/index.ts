@@ -14,7 +14,7 @@ export function getBearerToken(authHeader?: string) {
  * @returns hashed password
  */
 export function passwordHash(password: string) {
-  return bcrypt.hash(password, 20);
+  return bcrypt.hash(password, 10);
 }
 
 /**
