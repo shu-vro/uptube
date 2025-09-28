@@ -14,12 +14,27 @@ export {
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
-  console.log('hi from root layout', colorScheme);
 
   return (
     <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
+      {/* the part where you see time, battery, and notifications */}
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <Stack />
+      {/* the actual stack from expo-router */}
+      <Stack>
+        <Stack.Screen
+          name="(tabs)"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="video/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
+      </Stack>
+      {/* tooltips, modals, and other overlays */}
       <PortalHost />
     </ThemeProvider>
   );

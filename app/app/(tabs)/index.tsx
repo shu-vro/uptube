@@ -7,6 +7,7 @@ import { MoonStarIcon, StarIcon, SunIcon } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import * as React from 'react';
 import { Image, type ImageStyle, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const LOGO = {
   light: require('@/assets/images/react-native-reusables-light.png'),
@@ -17,14 +18,14 @@ const SCREEN_OPTIONS = {
   light: {
     title: 'React Native Reusables',
     headerTransparent: true,
-    headerShadowVisible: true,
+    headerShadowVisible: false,
     headerStyle: { backgroundColor: THEME.light.background },
     headerRight: () => <ThemeToggle />,
   },
   dark: {
     title: 'React Native Reusables',
     headerTransparent: true,
-    headerShadowVisible: true,
+    headerShadowVisible: false,
     headerStyle: { backgroundColor: THEME.dark.background },
     headerRight: () => <ThemeToggle />,
   },
@@ -38,10 +39,16 @@ const IMAGE_STYLE: ImageStyle = {
 export default function Screen() {
   const { colorScheme } = useColorScheme();
 
+  // return (
+  //   <View className="h-full w-full bg-red-600 text-blue-500">
+  //     <Text>whatever</Text>
+  //   </View>
+  // );
+
   return (
     <>
       <Stack.Screen options={SCREEN_OPTIONS[colorScheme ?? 'light']} />
-      <View className="flex-1 items-center justify-center gap-8 p-4">
+      <SafeAreaView className="flex-1 items-center justify-center gap-8 p-4">
         <Image source={LOGO[colorScheme ?? 'light']} style={IMAGE_STYLE} resizeMode="contain" />
         <View className="gap-2 p-4">
           <Text className="ios:text-foreground font-mono text-sm text-muted-foreground">
@@ -64,7 +71,7 @@ export default function Screen() {
             </Button>
           </Link>
         </View>
-      </View>
+      </SafeAreaView>
     </>
   );
 }
