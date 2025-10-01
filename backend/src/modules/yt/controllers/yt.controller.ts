@@ -33,6 +33,15 @@ export const searchVideos = asyncHandler(async (req: Request) => {
   req._success(orderedResults);
 });
 
+export const showSuggestions = asyncHandler(async (req: Request) => {
+  const query = req.query.q as string;
+  if (!query || query.length < 1) {
+    return req._error("Query is required");
+  }
+  const suggestions = await yt.getSearchSuggestions(query);
+  req._success(suggestions);
+});
+
 export const home = asyncHandler(async (req: Request) => {
   const page = req.query?.page ? parseInt(req.query.page as string, 10) : 1;
   const limit = req.query?.limit ? parseInt(req.query.limit as string, 10) : 20;

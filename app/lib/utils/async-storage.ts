@@ -7,6 +7,7 @@ export const setItem = async (key: string, value: any) => {
     await AsyncStorage.setItem(key, stringValue);
   } catch (e) {
     console.log('[ASYNC-STORAGE]: Error saving data', e);
+    return null;
   }
 };
 
@@ -16,6 +17,7 @@ export const getItem = async (key: string) => {
     return stringValue ? JSON.parse(stringValue) : null;
   } catch (e) {
     console.log('[ASYNC-STORAGE]: Error reading data', e);
+    return null;
   }
 };
 
@@ -33,9 +35,5 @@ export async function setItemSecure(key: string, value: any) {
 
 export async function getItemSecure(key: string) {
   let result = await SecureStore.getItemAsync(key);
-  if (result) {
-    alert("🔐 Here's your value 🔐 \n" + result);
-  } else {
-    alert('No values stored under that key.');
-  }
+  return result ? JSON.parse(result) : null;
 }

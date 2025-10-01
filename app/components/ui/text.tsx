@@ -3,10 +3,17 @@ import * as Slot from '@rn-primitives/slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
 import { Platform, Text as RNText, type Role } from 'react-native';
+import {
+  useFonts,
+  Outfit_400Regular,
+  Outfit_700Bold,
+  Outfit_900Black,
+  Outfit_200ExtraLight,
+} from '@expo-google-fonts/outfit';
 
 const textVariants = cva(
   cn(
-    'text-foreground text-base',
+    'text-base text-foreground',
     Platform.select({
       web: 'select-text',
     })
@@ -16,24 +23,22 @@ const textVariants = cva(
       variant: {
         default: '',
         h1: cn(
-          'text-center text-4xl font-extrabold tracking-tight',
+          'text-center text-4xl tracking-tight',
           Platform.select({ web: 'scroll-m-20 text-balance' })
         ),
         h2: cn(
-          'border-border border-b pb-2 text-3xl font-semibold tracking-tight',
+          'border-b border-border pb-2 text-3xl tracking-tight',
           Platform.select({ web: 'scroll-m-20 first:mt-0' })
         ),
-        h3: cn('text-2xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
-        h4: cn('text-xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
+        h3: cn('text-2xl tracking-tight', Platform.select({ web: 'scroll-m-20' })),
+        h4: cn('text-xl tracking-tight', Platform.select({ web: 'scroll-m-20' })),
         p: 'mt-3 leading-7 sm:mt-6',
         blockquote: 'mt-4 border-l-2 pl-3 italic sm:mt-6 sm:pl-6',
-        code: cn(
-          'bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold'
-        ),
-        lead: 'text-muted-foreground text-xl',
-        large: 'text-lg font-semibold',
-        small: 'text-sm font-medium leading-none',
-        muted: 'text-muted-foreground text-sm',
+        code: cn('relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm'),
+        lead: 'text-xl text-muted-foreground',
+        large: 'text-lg',
+        small: 'text-sm leading-none',
+        muted: 'text-sm text-muted-foreground',
       },
     },
     defaultVariants: {
@@ -76,9 +81,39 @@ function Text({
   }) {
   const textClass = React.useContext(TextClassContext);
   const Component = asChild ? Slot.Text : RNText;
+
+  let [fontsLoaded] = useFonts({
+    Outfit_200ExtraLight,
+    Outfit_400Regular,
+    Outfit_700Bold,
+    Outfit_900Black,
+  });
+
+  if (!fontsLoaded) return null;
+
+  // Determine font family based on variant
+  const getFontFamily = (variant: TextVariant) => {
+    switch (variant) {
+      case 'h1':
+        return 'Outfit_900Black';
+      case 'h2':
+        return 'Outfit_700Bold';
+      case 'h3':
+      case 'h4':
+      case 'large':
+        return 'Outfit_700Bold';
+      case 'small':
+      case 'muted':
+        return 'Outfit_200ExtraLight';
+      default:
+        return 'Outfit_400Regular';
+    }
+  };
+
   return (
     <Component
       className={cn(textVariants({ variant }), textClass, className)}
+      style={[{ fontFamily: getFontFamily(variant || 'default') }, props.style]}
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
       {...props}

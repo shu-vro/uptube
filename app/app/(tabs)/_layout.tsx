@@ -3,19 +3,21 @@ import { Tabs } from 'expo-router';
 import { useColorScheme } from 'nativewind';
 import { THEME } from '@/lib/theme';
 import { Lucide } from '@react-native-vector-icons/lucide';
+import { TabBar } from '@/components/specific/TabBar';
 
 export default function Layout() {
   const { colorScheme } = useColorScheme();
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#000000',
-        tabBarInactiveTintColor: '#666666',
-        tabBarActiveBackgroundColor: THEME[colorScheme ?? 'light'].primary,
-        tabBarStyle: {
-          backgroundColor: THEME[colorScheme ?? 'light'].background,
-        },
-      }}>
+      // screenOptions={{
+      //   tabBarActiveTintColor: '#000000',
+      //   tabBarInactiveTintColor: '#666666',
+      //   tabBarActiveBackgroundColor: THEME[colorScheme ?? 'light'].primary,
+      //   tabBarStyle: {
+      //     backgroundColor: THEME[colorScheme ?? 'light'].background,
+      //   },
+      // }}
+      tabBar={(props) => <TabBar {...props} />}>
       <Tabs.Screen
         name="index"
         options={{

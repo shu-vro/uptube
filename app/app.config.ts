@@ -14,6 +14,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   newArchEnabled: true,
   extra: {
     UPTUBE_API: process.env.UPTUBE_API,
+    eas: {
+      projectId: 'e85bb0bd-70bd-47ae-b3c1-085ef92c34db',
+    },
   },
   splash: {
     image: './assets/icons/icons-folder/ic_launcher_foreground.png',
@@ -25,6 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
   },
   android: {
+    package: 'com.shirshen.uptube',
     edgeToEdgeEnabled: true,
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
