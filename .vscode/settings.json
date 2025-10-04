@@ -1,3 +1,15 @@
 {
-  "cSpell.words": ["uptube"]
+  "cSpell.words": ["uptube"],
+  "sqltools.connections": [
+    {
+      "ssh": "Disabled",
+      "previewLimit": 50,
+      "server": "localhost",
+      "driver": "PostgreSQL",
+      "database": "prisma",
+      "username": "postgres",
+      "name": "local",
+      "connectString": "postgresql://postgres:postgres@localhost:5432/prisma?schema=public"
+    }
+  ]
 }

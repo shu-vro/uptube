@@ -5,6 +5,8 @@ import { useColorScheme } from 'nativewind';
 import { View, Image, StyleSheet, ImageBackground } from 'react-native';
 import { Lucide } from '@react-native-vector-icons/lucide';
 import { Skeleton } from '../ui/skeleton';
+import { Video } from '@/types/prisma';
+import { distanceFromToday, miniNumber, numberToTime } from '@/lib/utils/number-format';
 
 const IMAGE_STYLE = StyleSheet.create({
   thumbnail: {
@@ -49,21 +51,24 @@ export const VideoCardList = ({ item }: { item: any }) => {
   );
 };
 
-export function VideoCardGrid({ item }: { item: any }) {
-  const { colorScheme } = useColorScheme();
-  const theme = THEME[colorScheme ?? 'light'];
-  console.log(item.thumbnail);
-
+export function VideoCardGrid({ item }: { item: Video }) {
   return (
-    <Card className="mb-3 h-80 w-[calc(100%-2rem)]">
-      <CardContent className="p-3">
-        <View className="mb-2 h-48 w-full items-center justify-center overflow-hidden rounded-lg bg-muted">
+    <Card className="mb-3 h-auto w-[calc(100%-2rem)]">
+      <CardContent className="px-3">
+        <View className="relative mb-2 aspect-video w-full items-center justify-center overflow-hidden rounded-lg bg-muted">
           <ImageBackground
-            source={{ uri: item.thumbnail }}
+            source={{
+              uri: item.thumbnails?.sort((a, b) => (a?.width || 0) - (b?.width || 0))[
+                Math.min(item.thumbnails.length - 1, 1)
+              ]?.id,
+            }}
             style={[IMAGE_STYLE, { flex: 1, width: '100%', height: '100%' }]}
-            resizeMode="cover">
-            <View className="flex-1 items-center justify-center">
-              <Lucide name="circle-play" size={32} color="rgba(255,255,255,0.8)" />
+            resizeMode="cover"
+            onError={() => console.log('Image failed to load:', item.thumbnail)}>
+            <View className="absolute bottom-2 right-2 rounded-sm bg-background/60 px-1.5 py-0.5">
+              <Text variant="muted" className="text-xs">
+                {numberToTime(item.duration || 0)}
+              </Text>
             </View>
           </ImageBackground>
         </View>
@@ -71,17 +76,17 @@ export function VideoCardGrid({ item }: { item: any }) {
           {item.title}
         </Text>
         <Text variant="muted" className="mb-1 text-xs" numberOfLines={1}>
-          {item.channel}
+          {item.creator?.title}
         </Text>
         <View className="flex-row items-center">
           <Text variant="muted" className="text-xs">
-            {item.views}
+            {miniNumber(item.view_count || 0)} views
           </Text>
           <Text variant="muted" className="mx-1 text-xs">
             •
           </Text>
           <Text variant="muted" className="text-xs">
-            {item.duration}
+            {distanceFromToday(item.createdAt || 0)}
           </Text>
         </View>
       </CardContent>

@@ -1,5 +1,6 @@
 import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
-import { useLinkBuilder, useTheme } from '@react-navigation/native';
+import { useLinkBuilder } from '@react-navigation/native';
+import { BlurView } from '@react-native-community/blur';
 import { PlatformPressable } from '@react-navigation/elements';
 import { Text } from '../ui/text';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -36,13 +37,24 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     };
   });
 
+  useEffect(() => {
+    const targetX = buttonWidth * state.index;
+    tabPositionX.value = withSpring(targetX, { damping: 100, stiffness: 1000 });
+  }, [state.index, buttonWidth, dimention.width, state.routes.length]);
+
   return (
     <View
       onLayout={onTabbarLayout}
-      className="absolute bottom-4 mx-4 flex-row items-center justify-center rounded-xl border border-white/20 bg-black/10 backdrop-blur-xl dark:bg-white/10"
+      className="absolute bottom-4 mx-4 flex-row items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-black/10 backdrop-blur-xl dark:bg-white/10"
       style={styles.tabbar}>
+      <BlurView
+        style={StyleSheet.absoluteFill}
+        blurType={colorScheme === 'dark' ? 'dark' : 'light'}
+        blurAmount={20}
+        reducedTransparencyFallbackColor={colors.background}
+      />
       <Animated.View
-        className="absolute left-0 top-0 z-[-1] mx-0 rounded-2xl bg-primary"
+        className="absolute left-0 top-0 z-0 mx-0 rounded-2xl bg-primary"
         style={[animatedStyle]}
       />
       {state.routes.map((route, index) => {
