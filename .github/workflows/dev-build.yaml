@@ -28,6 +28,9 @@ jobs:
     needs: check-skip
     if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./app
     steps:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
@@ -37,12 +40,13 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
+          cache-dependency-path: ./app/package-lock.json
 
       - name: 📦 Setup npm cache
         uses: actions/cache@v3
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-node-${{ hashFiles('./app/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
@@ -55,7 +59,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.eas-build-local
-          key: ${{ runner.os }}-eas-build-local-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-eas-build-local-${{ hashFiles('./app/package.json') }}
           restore-keys: |
             ${{ runner.os }}-eas-build-local-
 
@@ -147,7 +151,7 @@ jobs:
         with:
           name: app-builds
           path: |
-            ./app-dev.apk
-            ./app-prod.apk
-            ./app-prod.aab
+            ./app/app-dev.apk
+            ./app/app-prod.apk
+            ./app/app-prod.aab
           retention-days: 7
