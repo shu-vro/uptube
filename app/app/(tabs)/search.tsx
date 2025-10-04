@@ -24,6 +24,9 @@ import { Lucide } from '@react-native-vector-icons/lucide';
 import useDebounce from '@/hooks/useDebounce';
 import { LoadingVideo, SearchResultVideo } from '@/components/specific/Search';
 import { get } from '@/lib/utils/fetch';
+import { ToggleGroup, ToggleGroupIcon, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { List, Grid2x2, Underline } from 'lucide-react-native';
+import { useAsyncItem } from '@/lib/utils/async-storage';
 
 const dummySearchResults = [
   {
@@ -99,6 +102,8 @@ export default function Search() {
   const [hasSearched, setHasSearched] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [viewMode, setViewMode] = useAsyncItem('viewMode', 'grid');
+  // const [viewMode, setViewMode] = useState<'list' | 'grid'>(viewModeAsync || 'grid'); // 'list' or 'grid'
 
   const debouncedSuggestionQuery = useDebounce(searchQuery, 200);
 
@@ -220,6 +225,10 @@ export default function Search() {
       setSearchQuery(suggestion);
       performSearch(suggestion);
       searchInputRef.current?.blur();
+      getSuggestions(suggestion).then((suggestions: any) => {
+        setFilteredSuggestions(suggestions);
+        setIsLoadingSuggestions(false);
+      });
     },
     [performSearch]
   );
@@ -301,6 +310,7 @@ export default function Search() {
                   setShowSuggestions(isFocused);
                   setSearchResults([]);
                   setHasSearched(false);
+                  setFilteredSuggestions([]);
                 }}
                 className="ml-2">
                 <Lucide name="x" size={18} color={theme.mutedForeground} />
@@ -374,13 +384,42 @@ export default function Search() {
           )}
 
           {searchResults.length > 0 && !isLoading && (
-            <FlatList
-              data={searchResults}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => <SearchResultVideo item={item} />}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingTop: 8, paddingBottom: 20 }}
-            />
+            <>
+              {/* list or column */}
+              <View className="mx-4 flex-row">
+                <View className="grow"></View>
+                <ToggleGroup
+                  value={viewMode}
+                  onValueChange={(val) => {
+                    if (val) {
+                      setViewMode(val as 'list' | 'grid');
+                    }
+                  }}
+                  variant="outline"
+                  type="single">
+                  <ToggleGroupItem isFirst value="list" aria-label="Toggle list">
+                    <ToggleGroupIcon as={List} />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem isLast value="grid" aria-label="Toggle grid">
+                    <ToggleGroupIcon as={Grid2x2} />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </View>
+              {/* the actual list */}
+              <FlatList
+                data={searchResults}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <>
+                    <SearchResultVideo item={item} variant={viewMode!} />
+                    <SearchResultVideo item={item} variant={viewMode!} />
+                    <SearchResultVideo item={item} variant={viewMode!} />
+                  </>
+                )}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingTop: 8, paddingBottom: 100, paddingHorizontal: 16 }}
+              />
+            </>
           )}
 
           {searchResults.length === 0 && !isLoading && !showSuggestions && hasSearched && (

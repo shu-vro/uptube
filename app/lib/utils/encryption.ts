@@ -30,8 +30,6 @@ export async function encryptHybrid(
     const encrypted = b64.fromByteArray(out);
     const encryptedUrl = toBase64Url(encrypted);
 
-    console.log(encryptedUrl, 'encrypted data');
-
     return { encrypted: encryptedUrl };
   } catch (error) {
     console.error('Error in encryptHybrid:', error);

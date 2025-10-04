@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function Profile() {
   return (
     <SafeAreaView>
-      <Text>Profile</Text>
+      <Text>Bookmark</Text>
     </SafeAreaView>
   );
 }

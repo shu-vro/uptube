@@ -21,7 +21,7 @@ export default function Layout() {
       <Tabs.Screen
         name="index"
         options={{
-          headerShown: true,
+          headerShown: false,
           tabBarLabel: 'Explore',
           tabBarIcon: ({ color, size }) => <Lucide name="compass" size={size} color={color} />,
         }}
@@ -43,13 +43,11 @@ export default function Layout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="bookmark"
         options={{
           headerShown: false,
-          tabBarLabel: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <Lucide name="decimals-arrow-right" size={size} color={color} />
-          ),
+          tabBarLabel: 'Bookmark',
+          tabBarIcon: ({ color, size }) => <Lucide name="bookmark" size={size} color={color} />,
         }}
       />
     </Tabs>

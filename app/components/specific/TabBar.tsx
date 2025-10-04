@@ -39,7 +39,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   return (
     <View
       onLayout={onTabbarLayout}
-      className="absolute bottom-4 mx-2 flex-row items-center justify-center rounded-2xl border border-white/20 bg-black/10 backdrop-blur-xl dark:bg-white/10"
+      className="absolute bottom-4 mx-4 flex-row items-center justify-center rounded-xl border border-white/20 bg-black/10 backdrop-blur-xl dark:bg-white/10"
       style={styles.tabbar}>
       <Animated.View
         className="absolute left-0 top-0 z-[-1] mx-0 rounded-2xl bg-primary"

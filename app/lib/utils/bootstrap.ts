@@ -2,6 +2,7 @@
 import * as ExpoCrypto from 'expo-crypto';
 import 'fast-text-encoding'; // TextEncoder/TextDecoder polyfill
 import 'react-native-get-random-values';
+import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 
 // Make RN’s global look like a browser-ish global for libs that sniff "self" or "window"
 if (typeof global.self === 'undefined') (global as any).self = global;
@@ -16,3 +17,9 @@ if (typeof (global as any).crypto.getRandomValues !== 'function') {
     return arr;
   };
 }
+
+// This is the default configuration
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false, // Reanimated runs in strict mode by default
+});

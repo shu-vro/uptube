@@ -31,6 +31,7 @@ const payloadEncryptionMiddleware = (
           ...parsedParams,
         });
         delete req.query.encrypted;
+        console.log(req.query);
       } catch (error: any) {
         console.error("Failed to decrypt params:", error);
         return next(new Error("Invalid encrypted parameters"));
@@ -46,6 +47,7 @@ const payloadEncryptionMiddleware = (
           ...parsedBody,
         });
         delete req.body.encrypted;
+        console.log(req.body);
       } catch (error: any) {
         logger.error("Failed to decrypt body:", error);
         return next(new Error("Invalid encrypted body"));

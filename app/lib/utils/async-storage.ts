@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { useEffect, useState } from 'react';
 
 export const setItem = async (key: string, value: any) => {
   try {
@@ -21,6 +22,28 @@ export const getItem = async (key: string) => {
   }
 };
 
+export function useAsyncItem(
+  key: string,
+  defaultValue?: any
+): [any, (value: any) => Promise<void>] {
+  const [data, setData] = useState(defaultValue ?? null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const data = await getItem(key);
+      return data;
+    };
+    fetchData().then((data) => setData(data));
+  }, [key]);
+
+  const setAsyncData = async (value: any) => {
+    await setItem(key, value);
+    setData(value);
+  };
+
+  return [data, setAsyncData];
+}
+
 export const removeItem = async (key: string) => {
   try {
     await AsyncStorage.removeItem(key);
@@ -36,4 +59,27 @@ export async function setItemSecure(key: string, value: any) {
 export async function getItemSecure(key: string) {
   let result = await SecureStore.getItemAsync(key);
   return result ? JSON.parse(result) : null;
+}
+
+export async function removeItemSecure(key: string) {
+  await SecureStore.deleteItemAsync(key);
+}
+
+export function useSecureItem(key: string): [any, (value: any) => Promise<void>] {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const data = await getItemSecure(key);
+      return data;
+    };
+    fetchData().then((data) => setData(data));
+  }, [key]);
+
+  const setSecureData = async (value: any) => {
+    await setItemSecure(key, value);
+    setData(value);
+  };
+
+  return [data, setSecureData];
 }

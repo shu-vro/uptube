@@ -32,14 +32,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: 'com.shirshen.uptube',
     edgeToEdgeEnabled: true,
     adaptiveIcon: {
-      foregroundImage: './assets/images/adaptive-icon.png',
+      foregroundImage: './assets/icons/icons-folder/iTunesArtwork@2x.png',
       backgroundColor: '#000000',
     },
   },
   web: {
     bundler: 'metro',
     output: 'static',
-    favicon: './assets/images/favicon.png',
+    favicon: './assets/icons/icons-folder/iTunesArtwork@2x.png',
   },
   plugins: [
     'expo-router',
