@@ -9,59 +9,48 @@ const payloadEncryptionMiddleware = (
   next: NextFunction
 ) => {
   try {
-    req.params = req.params || {};
+    req.query = req.query || {};
     req.body = req.body || {};
-
     if (!FLAGS.ALLOW_UNENCRYPTED_REQUESTS) {
-      const encryptedParams = req.params.encrypted;
+      const encryptedParams = req.query.encrypted;
       const encryptedBody = req.body.encrypted;
-
-      req.params = encryptedParams ? { encrypted: encryptedParams } : {};
+      req.query = encryptedParams ? { encrypted: encryptedParams } : {};
       req.body = encryptedBody ? { encrypted: encryptedBody } : {};
     }
-
-    const hasEncryptedParams = req.params.encrypted;
-    const hasEncryptedBody = req.body.encrypted;
-
+    const hasEncryptedParams = req.query?.encrypted || "";
+    const hasEncryptedBody = req.body?.encrypted || "";
     if (!hasEncryptedParams && !hasEncryptedBody) {
       return next();
     }
-
     if (hasEncryptedParams) {
       try {
-        const payload = JSON.parse(req.params.encrypted);
-        const decryptedParams = decryptHybrid(payload);
+        const decryptedParams = decryptHybrid(hasEncryptedParams as string);
         const parsedParams = JSON.parse(decryptedParams);
-
-        req.params = {
-          ...req.params,
+        Object.assign(req.query, {
+          ...req.query,
           ...parsedParams,
-        };
-        delete req.params.encrypted;
+        });
+        delete req.query.encrypted;
       } catch (error: any) {
-        logger.error("Failed to decrypt params:", error);
+        console.error("Failed to decrypt params:", error);
         return next(new Error("Invalid encrypted parameters"));
       }
     }
-
     // Decrypt body if present
     if (hasEncryptedBody) {
       try {
-        const payload = JSON.parse(req.body.encrypted);
-        const decryptedBody = decryptHybrid(payload);
+        const decryptedBody = decryptHybrid(hasEncryptedBody as string);
         const parsedBody = JSON.parse(decryptedBody);
-
-        req.body = {
+        Object.assign(req.body, {
           ...req.body,
           ...parsedBody,
-        };
+        });
         delete req.body.encrypted;
       } catch (error: any) {
         logger.error("Failed to decrypt body:", error);
         return next(new Error("Invalid encrypted body"));
       }
     }
-
     next();
   } catch (error) {
     console.error("Encryption middleware error:", error);

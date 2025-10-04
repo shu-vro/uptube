@@ -1,0 +1,56 @@
+name: EAS Dev Build
+
+on:
+  push:
+    branches: ["dev-build"]
+
+concurrency:
+  group: dev-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Expo auth (set in repo secrets)
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+  # Optional: speed up EAS by skipping VCS checks
+  EAS_NO_VCS: "1"
+
+jobs:
+  android:
+    name: Android Dev Client
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install EAS CLI
+        run: npm i -g eas-cli
+
+      - name: Build (EAS Cloud) - Android
+        # Uses your "development" profile in eas.json
+        run: |
+          eas build --platform android --profile development --non-interactive --json > build-android.json
+
+      - name: Extract artifact URL
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          URL=$(cat build-android.json | jq -r '.[0].artifacts.buildUrl // .artifacts.applicationArchiveUrl // .artifacts.buildArtifact')
+          echo "ANDROID_ARTIFACT_URL=$URL" >> $GITHUB_ENV
+
+      - name: Save artifact URL
+        run: echo "$ANDROID_ARTIFACT_URL" > android-build-url.txt
+
+      - name: Upload URL as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-url
+          path: android-build-url.txt

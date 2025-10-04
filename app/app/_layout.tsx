@@ -1,3 +1,5 @@
+import '@/lib/utils/bootstrap';
+
 import '@/global.css';
 
 import { NAV_THEME } from '@/lib/theme';

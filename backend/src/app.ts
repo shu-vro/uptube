@@ -73,6 +73,17 @@ app.use(
   })
 );
 app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+  Object.defineProperty(req, "query", {
+    value: req.query,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+
+  next();
+});
+
 app.use(validateRequest);
 // app.use(limiter);
 app.use(responseFormat);

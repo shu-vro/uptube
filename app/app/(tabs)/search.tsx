@@ -1,4 +1,13 @@
-import { View, TextInput, FlatList, TouchableOpacity, Dimensions, Keyboard } from 'react-native';
+import {
+  View,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  Dimensions,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
@@ -51,14 +60,12 @@ const dummySearchResults = [
   },
 ];
 
-const searchSuggestions = dummySearchResults.map((item) => item.title);
-
 // TODO: FROM SERVER
 const getSuggestions = async (query: string) => {
   try {
     if (query.length < 3) return [];
     const data = await get('/public/yt/show-suggestions', { q: query });
-    return data.data;
+    return data?.data || [];
   } catch (e) {
     console.error('Error fetching suggestions:', e);
     return [];
@@ -262,7 +269,9 @@ export default function Search() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1">
         <Animated.View className="absolute left-4 right-4 z-10" style={searchBarAnimatedStyle}>
           <View className="flex-row items-center rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
             <Lucide
@@ -386,7 +395,7 @@ export default function Search() {
             </View>
           )}
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

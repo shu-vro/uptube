@@ -10,6 +10,7 @@ const Context = createContext({} as TFeatures);
 export default function FeaturesProvider({ children }: { children: React.ReactNode }) {
   const { data, mutate } = useSWR('/features', get);
   setItem('features', data?.data || null);
+  console.log(data?.data, 'from provider');
   return <Context.Provider value={{ data, mutate }}>{children}</Context.Provider>;
 }
 

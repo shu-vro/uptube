@@ -1,26 +1,40 @@
-import Crypto from 'expo-crypto';
+import * as b64 from 'base64-js';
 
-export async function encryptHybrid(data: string, publicKeyPem: string) {
-  const iv = Crypto.getRandomBytes(12);
-  const aesKey = Crypto.getRandomBytes(32);
+const padB64 = (s: string) => s + '='.repeat((4 - (s.length % 4)) % 4);
 
-  const cipher = Crypto.createCipheriv('aes-256-gcm', aesKey, iv);
-  const ciphertext = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()]);
-  const tag = cipher.getAuthTag();
+const toBase64Url = (b64: string) => b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-  const wrappedKey = Crypto.publicEncrypt(
-    {
-      key: publicKeyPem,
-      padding: Crypto.constants.RSA_PKCS1_OAEP_PADDING,
-      oaepHash: 'sha256',
-    },
-    aesKey
-  );
+export async function encryptHybrid(
+  plaintext: string,
+  serverPublicKeyB64: string
+): Promise<{ encrypted: string } | Record<string, any>> {
+  try {
+    // if (!serverPublicKeyB64) return JSON.parse(plaintext);
 
-  return {
-    wrappedKey: Buffer.from(wrappedKey).toString('base64'),
-    iv: Buffer.from(iv).toString('base64'),
-    ciphertext: ciphertext.toString('base64'),
-    tag: tag.toString('base64'),
-  };
+    const { default: nacl } = await import('tweetnacl');
+
+    const pk = b64.toByteArray(padB64(serverPublicKeyB64));
+    if (pk.length !== 32) throw new Error('Invalid server public key length');
+
+    const eph = nacl.box.keyPair();
+    const nonce = nacl.randomBytes(24);
+
+    const msg = new TextEncoder().encode(plaintext);
+    const boxed = nacl.box(msg, nonce, pk, eph.secretKey);
+
+    const out = new Uint8Array(32 + 24 + boxed.length);
+    out.set(eph.publicKey, 0);
+    out.set(nonce, 32);
+    out.set(boxed, 56);
+
+    const encrypted = b64.fromByteArray(out);
+    const encryptedUrl = toBase64Url(encrypted);
+
+    console.log(encryptedUrl, 'encrypted data');
+
+    return { encrypted: encryptedUrl };
+  } catch (error) {
+    console.error('Error in encryptHybrid:', error);
+    return JSON.parse(plaintext);
+  }
 }

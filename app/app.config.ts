@@ -26,6 +26,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: true,
+    bundleIdentifier: 'com.shirshen.uptube',
   },
   android: {
     package: 'com.shirshen.uptube',
