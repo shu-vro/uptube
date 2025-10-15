@@ -25,6 +25,7 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
 });
 
 export const searchVideos = asyncHandler(async (req: Request) => {
+  console.log(req.query.q, "hibijibi");
   const query = req.query.q as string;
   const limit = parseInt((req.query.limit as string) || "20", 10);
 

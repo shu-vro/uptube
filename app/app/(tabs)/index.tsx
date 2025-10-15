@@ -91,7 +91,7 @@ export default function Screen() {
     (url) => {
       return get(url);
     },
-    { refreshInterval: 30000 }
+    { refreshInterval: 60000 }
   );
   return (
     <SafeAreaView>

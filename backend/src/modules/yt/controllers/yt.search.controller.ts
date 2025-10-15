@@ -22,11 +22,13 @@ export async function searchYtVideosAndSaveToDB(
   });
 
   // console.time("one");
-  const uploadableVideos = videos.videos
-    .as(YTNodes.Video)
-    .filter((video) => video.type === "Video")
-    .splice(0, limit);
+  // const uploadableVideos = videos.videos.as(YTNodes.Video).splice(0, limit);
 
+  const uploadableVideos: YTNodes.Video[] = videos.videos
+    .filter((e) => e.type === "Video")
+    .splice(0, limit) as YTNodes.Video[];
+
+  // return uploadableVideos;
   const videoIds = uploadableVideos.map((v) => v.video_id);
   const creatorIds = Array.from(
     new Set(

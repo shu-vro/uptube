@@ -16,6 +16,7 @@ const request = async (
 
     if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
     const url = Constants.expoConfig?.extra?.UPTUBE_API + '/api/v1' + endpoint;
+    console.log(url);
     // check if local storage has token
     const tokenFromStorage = await getItemSecure('token');
     token = token || tokenFromStorage;

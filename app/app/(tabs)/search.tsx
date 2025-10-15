@@ -28,40 +28,40 @@ import { ToggleGroup, ToggleGroupIcon, ToggleGroupItem } from '@/components/ui/t
 import { List, Grid2x2, Underline } from 'lucide-react-native';
 import { useAsyncItem } from '@/lib/utils/async-storage';
 
-const dummySearchResults = [
-  {
-    id: '1',
-    title: 'React Native Performance Optimization',
-    channel: 'Tech Channel',
-    views: '1.2M views',
-    duration: '15:30',
-    thumbnail: 'https://via.placeholder.com/320x180',
-  },
-  {
-    id: '2',
-    title: 'Advanced TypeScript Patterns',
-    channel: 'Code Academy',
-    views: '800K views',
-    duration: '22:15',
-    thumbnail: 'https://via.placeholder.com/320x180',
-  },
-  {
-    id: '3',
-    title: 'Modern UI Design Trends 2024',
-    channel: 'Design Hub',
-    views: '2.1M views',
-    duration: '18:45',
-    thumbnail: 'https://via.placeholder.com/320x180',
-  },
-  {
-    id: '4',
-    title: 'Building Scalable APIs',
-    channel: 'Backend Masters',
-    views: '650K views',
-    duration: '28:20',
-    thumbnail: 'https://via.placeholder.com/320x180',
-  },
-];
+// const dummySearchResults = [
+//   {
+//     id: '1',
+//     title: 'React Native Performance Optimization',
+//     channel: 'Tech Channel',
+//     views: '1.2M views',
+//     duration: '15:30',
+//     thumbnail: 'https://via.placeholder.com/320x180',
+//   },
+//   {
+//     id: '2',
+//     title: 'Advanced TypeScript Patterns',
+//     channel: 'Code Academy',
+//     views: '800K views',
+//     duration: '22:15',
+//     thumbnail: 'https://via.placeholder.com/320x180',
+//   },
+//   {
+//     id: '3',
+//     title: 'Modern UI Design Trends 2024',
+//     channel: 'Design Hub',
+//     views: '2.1M views',
+//     duration: '18:45',
+//     thumbnail: 'https://via.placeholder.com/320x180',
+//   },
+//   {
+//     id: '4',
+//     title: 'Building Scalable APIs',
+//     channel: 'Backend Masters',
+//     views: '650K views',
+//     duration: '28:20',
+//     thumbnail: 'https://via.placeholder.com/320x180',
+//   },
+// ];
 
 // TODO: FROM SERVER
 const getSuggestions = async (query: string) => {
@@ -77,16 +77,14 @@ const getSuggestions = async (query: string) => {
 
 // Dummy API call simulation
 const searchAPI = async (query: string) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const filteredResults = dummySearchResults.filter(
-        (result) =>
-          result.title.toLowerCase().includes(query.toLowerCase()) ||
-          result.channel.toLowerCase().includes(query.toLowerCase())
-      );
-      resolve(filteredResults);
-    }, 500); // Simulate network delay
-  });
+  try {
+    if (query.length < 3) return [];
+    const data = await get('/public/yt/search', { q: query });
+    return data?.data || [];
+  } catch (e) {
+    console.error('Error fetching Videos', e);
+    return [];
+  }
 };
 
 export default function Search() {
@@ -411,8 +409,6 @@ export default function Search() {
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <>
-                    <SearchResultVideo item={item} variant={viewMode!} />
-                    <SearchResultVideo item={item} variant={viewMode!} />
                     <SearchResultVideo item={item} variant={viewMode!} />
                   </>
                 )}

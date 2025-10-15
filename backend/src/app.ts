@@ -28,14 +28,17 @@ const app = express();
         const [_, fileOrMethod, maybeLine, maybeColumn, file, line, column] =
           match;
         if (file) {
-          const relativeFile = path.relative(path.join(__dirname, "../"), file);
+          const relativeFile = path.relative(
+            path.join(process.cwd(), "../"),
+            file
+          );
           original(
             `[${level}][${relativeFile}:${line}:${column}] ${fileOrMethod}:`,
             ...args
           );
         } else {
           const relativeFile = path.relative(
-            path.join(__dirname, "../"),
+            path.join(process.cwd(), "../"),
             fileOrMethod
           );
           original(
@@ -51,6 +54,10 @@ const app = express();
     }
   };
 });
+
+import { Log } from "youtubei.js";
+// Available levels: NONE, ERROR, WARNING, INFO, DEBUG
+Log.setLevel(Log.Level.NONE);
 
 declare global {
   namespace Express {

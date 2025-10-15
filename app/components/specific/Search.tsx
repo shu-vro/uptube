@@ -16,32 +16,51 @@ const IMAGE_STYLE = StyleSheet.create({
   },
 }).thumbnail;
 
-export const VideoCardList = ({ item }: { item: any }) => {
+export const VideoCardList = ({ item }: { item: Video }) => {
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme ?? 'light'];
+
   return (
     <Card className="mb-3">
       <CardContent className="p-3">
         <View className="flex-row">
-          <View className="h-18 mr-3 w-32 items-center justify-center rounded-lg bg-muted">
-            <Lucide name="circle-play" size={24} color={theme.mutedForeground} />
+          <View className="h-18 mr-3 w-32 items-center justify-center overflow-hidden rounded-lg bg-muted">
+            <ImageBackground
+              source={{
+                uri: item.thumbnails?.sort((a, b) => (a?.width || 0) - (b?.width || 0))[
+                  Math.min((item.thumbnails?.length ?? 1) - 1, 1)
+                ]?.id,
+              }}
+              style={[IMAGE_STYLE, { flex: 1, width: '100%', height: '100%' }]}
+              resizeMode="cover"
+              onError={() => console.log('Image failed to load:', item.thumbnail)}>
+              <View className="absolute inset-0 items-center justify-center">
+                <Lucide name="circle-play" size={24} color={theme.mutedForeground} />
+              </View>
+              <View className="absolute bottom-2 right-2 rounded-sm bg-background/60 px-1.5 py-0.5">
+                <Text variant="muted" className="text-xs">
+                  {numberToTime(item.duration || 0)}
+                </Text>
+              </View>
+            </ImageBackground>
           </View>
+
           <View className="flex-1">
             <Text className="mb-1 text-sm font-semibold leading-5" numberOfLines={2}>
               {item.title}
             </Text>
-            <Text variant="muted" className="mb-1 text-xs">
-              {item.channel}
+            <Text variant="muted" className="mb-1 text-xs" numberOfLines={1}>
+              {item.creator?.title}
             </Text>
             <View className="flex-row items-center">
               <Text variant="muted" className="text-xs">
-                {item.views}
+                {miniNumber(item.view_count || 0)} views
               </Text>
               <Text variant="muted" className="mx-1 text-xs">
                 •
               </Text>
               <Text variant="muted" className="text-xs">
-                {item.duration}
+                {distanceFromToday(item.createdAt || 0)}
               </Text>
             </View>
           </View>
