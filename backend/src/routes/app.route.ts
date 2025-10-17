@@ -10,6 +10,12 @@ const router = Router();
 router.use("/protected", protectedRouter);
 router.use("/public", publicRouter);
 router.use("/admin", adminRouter);
+/**
+ * @openapi
+ * /api/v1/features:
+ *  get:
+ *     summary: Get feature flags and encryption public key
+ */
 router.use("/features", featuresRouter);
 
 export default router;

@@ -25,7 +25,6 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
 });
 
 export const searchVideos = asyncHandler(async (req: Request) => {
-  console.log(req.query.q, "hibijibi");
   const query = req.query.q as string;
   const limit = parseInt((req.query.limit as string) || "20", 10);
 
@@ -73,6 +72,6 @@ export const home = asyncHandler(async (req: Request) => {
 // const info = await yt.search("what is binary search?");
 // const info = await yt.getHomeFeed();
 export const doSomething = asyncHandler(async (req: Request) => {
-  const info = await yt.getHomeFeed();
+  const info = await yt.search("classical music", {});
   req._success({ message: "Fetched home feed", data: info });
 });

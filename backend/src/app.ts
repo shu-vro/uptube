@@ -1,3 +1,4 @@
+import "utils/bootstrap";
 import express from "express";
 import cors from "cors";
 import routes from "./routes/app.route";
@@ -5,68 +6,35 @@ import errorHandler from "./middlewares/error/global";
 import { validateRequest } from "./middlewares/error/validation";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
-import { User } from "generated/prisma";
 import morgan from "morgan";
 import "utils/encryption";
-import ENV from "config/env";
-import path from "path";
-import FLAGS from "config/FLAGS";
 import responseFormat from "middlewares/utilities/response-format";
 import payloadEncryptionMiddleware from "middlewares/utilities/payload-encryption";
+import ENV from "config/env";
+import { apiReference } from "@scalar/express-api-reference";
+import swaggerJsdoc from "swagger-jsdoc";
 
 const app = express();
 
-(["log", "warn", "error", "info"] as const).forEach((level) => {
-  const original = console[level].bind(console);
-  (console as any)[level] = (...args: any[]) => {
-    if (ENV.NODE_ENV === "development") {
-      const stack = new Error().stack?.split("\n")[2];
-      const match =
-        stack?.match(/at (.+):(\d+):(\d+)/) ||
-        stack?.match(/at (.+) \((.+):(\d+):(\d+)\)/);
-      if (match) {
-        const [_, fileOrMethod, maybeLine, maybeColumn, file, line, column] =
-          match;
-        if (file) {
-          const relativeFile = path.relative(
-            path.join(process.cwd(), "../"),
-            file
-          );
-          original(
-            `[${level}][${relativeFile}:${line}:${column}] ${fileOrMethod}:`,
-            ...args
-          );
-        } else {
-          const relativeFile = path.relative(
-            path.join(process.cwd(), "../"),
-            fileOrMethod
-          );
-          original(
-            `[${level}][${relativeFile}:${maybeLine}:${maybeColumn}]:`,
-            ...args
-          );
-        }
-      } else {
-        original(...args);
-      }
-    } else {
-      FLAGS.STOP_CONSOLE_AT_PROD ? null : original(...args);
-    }
+if (ENV.NODE_ENV === "development") {
+  const options = {
+    definition: {
+      openapi: "3.0.0",
+      info: {
+        title: "Uptube Backend",
+        version: "1.0.0",
+      },
+    },
+    apis: ["./**/*.ts"],
   };
-});
 
-import { Log } from "youtubei.js";
-// Available levels: NONE, ERROR, WARNING, INFO, DEBUG
-Log.setLevel(Log.Level.NONE);
-
-declare global {
-  namespace Express {
-    interface Request {
-      _success: (json: any, status?: number) => void;
-      _error: (message: any, status?: number) => void;
-      user?: User | null;
-    }
-  }
+  const openapiSpecification = swaggerJsdoc(options);
+  app.use(
+    "/reference",
+    apiReference({
+      content: openapiSpecification,
+    })
+  );
 }
 
 // Middleware setup

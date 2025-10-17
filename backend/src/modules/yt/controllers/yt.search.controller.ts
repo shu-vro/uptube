@@ -63,8 +63,6 @@ export async function searchYtVideosAndSaveToDB(
   let newCreators: any[] = [];
   let newVideos: any[] = [];
 
-  console.log(missingCreatorIds);
-
   // For creators
   if (missingCreatorIds.length > 0) {
     // console.time("three");
