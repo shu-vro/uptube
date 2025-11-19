@@ -1,6 +1,7 @@
 import logger from "config/logger/pino.logger";
 import { Cron } from "croner";
 
+// TODO: ERROR: until this is done, user will not receieve any video
 const videoIdCacheing = async () => {
   const interval = setInterval(async () => {
     if (!global.prisma) return;

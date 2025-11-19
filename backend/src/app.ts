@@ -1,7 +1,7 @@
 import "utils/bootstrap";
 import express from "express";
 import cors from "cors";
-import routes from "./routes/app.route";
+import routes from "./routes/v1/app.route";
 import errorHandler from "./middlewares/error/global";
 import { validateRequest } from "./middlewares/error/validation";
 import helmet from "helmet";

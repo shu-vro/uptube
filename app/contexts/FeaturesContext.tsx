@@ -10,7 +10,7 @@ const Context = createContext({} as TFeatures);
 
 export default function FeaturesProvider({ children }: { children: React.ReactNode }) {
   const [dataFetchFailed, setdataFetchFailed] = useState(false);
-  const { data, mutate } = useSWR('/features', get, {
+  const { data, mutate } = useSWR('/public/features', get, {
     refreshInterval: 0,
     onSuccess(data, key, config) {
       setdataFetchFailed(!data?.success);
