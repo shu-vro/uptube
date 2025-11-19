@@ -12,33 +12,11 @@ import responseFormat from "middlewares/utilities/response-format";
 import payloadEncryptionMiddleware from "middlewares/utilities/payload-encryption";
 import ENV from "config/env";
 import { apiReference } from "@scalar/express-api-reference";
-import swaggerJsdoc from "swagger-jsdoc";
+import { openapiSpecification } from "config/swagger";
 
 const app = express();
 
 if (ENV.NODE_ENV === "development") {
-  const openapiSpecification = swaggerJsdoc({
-    definition: {
-      openapi: "3.0.0",
-      info: {
-        title: "Uptube Backend",
-        version: "1.0.0",
-      },
-      components: {
-        schemas: {
-          ErrorResponse: {
-            type: "object",
-            properties: {
-              success: { type: "boolean", example: false },
-              message: { type: "string" },
-              statusCode: { type: "integer", example: 400 },
-            },
-          },
-        },
-      },
-    },
-    apis: ["./**/*.ts"],
-  });
   app.use(
     "/reference",
     apiReference({
