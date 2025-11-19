@@ -17,18 +17,28 @@ import swaggerJsdoc from "swagger-jsdoc";
 const app = express();
 
 if (ENV.NODE_ENV === "development") {
-  const options = {
+  const openapiSpecification = swaggerJsdoc({
     definition: {
       openapi: "3.0.0",
       info: {
         title: "Uptube Backend",
         version: "1.0.0",
       },
+      components: {
+        schemas: {
+          ErrorResponse: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: false },
+              message: { type: "string" },
+              statusCode: { type: "integer", example: 400 },
+            },
+          },
+        },
+      },
     },
     apis: ["./**/*.ts"],
-  };
-
-  const openapiSpecification = swaggerJsdoc(options);
+  });
   app.use(
     "/reference",
     apiReference({
@@ -67,5 +77,9 @@ app.use(payloadEncryptionMiddleware);
 app.use("/api/v1", routes);
 
 app.use(errorHandler);
+
+app.use((req, res) => {
+  req._error("Not found", 404);
+});
 
 export default app;

@@ -5,8 +5,9 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client" // or `prisma-client-js`
   output   = "../src/generated/prisma"
+  engineType      = "client" // enable Prisma ORM without Rust
 }
 
 datasource db {
@@ -34,6 +35,7 @@ model Video {
   view_count        Int
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
+  type              String      @default("video") // video, short, live
   extra             Json?       @default("{}")
 
   creator Creator @relation(fields: [channel_id], references: [id])

@@ -4,6 +4,7 @@ import { asyncHandler } from "utils/async-handler";
 import { Innertube, UniversalCache, YTNodes } from "youtubei.js";
 import { sanitizeYtUrl } from "utils/yt";
 import { searchYtVideosAndSaveToDB } from "./yt.search.controller";
+import _ from "lodash";
 
 export const yt = await Innertube.create({
   cache: new UniversalCache(true, "./.cache"),
@@ -45,11 +46,32 @@ export const showSuggestions = asyncHandler(async (req: Request) => {
 export const home = asyncHandler(async (req: Request) => {
   const page = req.query?.page ? parseInt(req.query.page as string, 10) : 1;
   const limit = req.query?.limit ? parseInt(req.query.limit as string, 10) : 20;
+  if (!global.videoIds || global.videoIds.length === 0) {
+    const videos = await prisma.video.findMany({
+      take: limit,
+      skip: (page - 1) * limit,
+      orderBy: {
+        view_count: "desc",
+      },
+      include: {
+        creator: {
+          include: {
+            avatars: true,
+          },
+        },
+        thumbnails: true,
+      },
+    });
+    req._success(videos);
+    return;
+  }
+
+  const vidIds = _.sampleSize(global.videoIds, limit);
   const videos = await prisma.video.findMany({
-    take: limit,
-    skip: (page - 1) * limit,
-    orderBy: {
-      view_count: "desc",
+    where: {
+      id: {
+        in: vidIds,
+      },
     },
     include: {
       creator: {

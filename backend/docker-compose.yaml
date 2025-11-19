@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: uptube
+      POSTGRES_USER: uptube
+      POSTGRES_PASSWORD: uptube
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - pgbackups:/backups
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uptube -d uptube"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+    networks:
+      - internal
+    ports:
+      - "3000:3000"
+
+  db-backup:
+    image: postgres:18-alpine
+    profiles: ["backup"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: uptube
+    volumes:
+      - pgbackups:/backups
+    networks:
+      - internal
+    entrypoint:
+      [
+        "/bin/sh",
+        "-c",
+        "pg_dumpall -U uptube -h db > /backups/uptube_$(date +%F_%H-%M-%S).sql",
+      ]
+
+volumes:
+  pgdata:
+  pgbackups:
+
+networks:
+  internal:
+    driver: bridge

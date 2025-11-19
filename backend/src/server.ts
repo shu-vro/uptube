@@ -14,9 +14,11 @@ console.log(`
 
 declare global {
   var prisma: PrismaClient;
+  var videoIds: string[];
 }
 
 global.prisma = prisma;
+import "cron/index";
 
 const server = createServer(app);
 
