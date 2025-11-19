@@ -3,7 +3,7 @@ import app from "app";
 import logger from "config/logger/pino.logger";
 import ENV from "config/env";
 import prisma from "utils/db/prisma";
-import type { PrismaClient } from "generated/prisma";
+import type { PrismaClient } from "generated/prisma/client";
 
 console.log(`
 ▗▖ ▗▖▗▄▄▖▗▄▄▄▖▗▖ ▗▖▗▄▄▖ ▗▄▄▄▖

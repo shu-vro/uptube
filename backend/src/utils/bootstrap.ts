@@ -1,7 +1,7 @@
 import ENV from "config/env";
 import path from "path";
 import FLAGS from "config/FLAGS";
-import { User } from "generated/prisma";
+import { User } from "generated/prisma/client";
 import { Log } from "youtubei.js";
 
 (["log", "warn", "error", "info"] as const).forEach((level) => {
