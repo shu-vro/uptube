@@ -2,11 +2,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { THEME } from '@/lib/theme';
 import { useColorScheme } from 'nativewind';
-import { View, Image, StyleSheet, ImageBackground } from 'react-native';
+import { View, Image, StyleSheet, ImageBackground, TouchableOpacity } from 'react-native';
 import { Lucide } from '@react-native-vector-icons/lucide';
 import { Skeleton } from '../ui/skeleton';
 import { Video } from '@/types/prisma';
 import { distanceFromToday, miniNumber, numberToTime } from '@/lib/utils/number-format';
+import { useRouter } from 'expo-router';
 
 const IMAGE_STYLE = StyleSheet.create({
   thumbnail: {
@@ -71,45 +72,52 @@ export const VideoCardList = ({ item }: { item: Video }) => {
 };
 
 export function VideoCardGrid({ item }: { item: Video }) {
+  const router = useRouter();
   return (
-    <Card className="mb-3 h-auto w-[calc(100%-2rem)]">
-      <CardContent className="px-3">
-        <View className="relative mb-2 aspect-video w-full items-center justify-center overflow-hidden rounded-lg bg-muted">
-          <ImageBackground
-            source={{
-              uri: item.thumbnails?.sort((a, b) => (a?.width || 0) - (b?.width || 0))[
-                Math.min(item.thumbnails.length - 1, 1)
-              ]?.id,
-            }}
-            style={[IMAGE_STYLE, { flex: 1, width: '100%', height: '100%' }]}
-            resizeMode="cover"
-            onError={() => console.log('Image failed to load:', item.thumbnail)}>
-            <View className="absolute bottom-2 right-2 rounded-sm bg-background/60 px-1.5 py-0.5">
-              <Text variant="muted" className="text-xs">
-                {numberToTime(item.duration || 0)}
-              </Text>
-            </View>
-          </ImageBackground>
-        </View>
-        <Text className="mb-1 text-sm font-semibold leading-4" numberOfLines={2}>
-          {item.title}
-        </Text>
-        <Text variant="muted" className="mb-1 text-xs" numberOfLines={1}>
-          {item.creator?.title}
-        </Text>
-        <View className="flex-row items-center">
-          <Text variant="muted" className="text-xs">
-            {miniNumber(item.view_count || 0)} views
+    <TouchableOpacity
+      activeOpacity={0.5}
+      onPress={() => {
+        router.push(`/video/${item.id}`);
+      }}>
+      <Card className="mb-3 h-auto w-[calc(100%-2rem)]">
+        <CardContent className="px-3">
+          <View className="relative mb-2 aspect-video w-full items-center justify-center overflow-hidden rounded-lg bg-muted">
+            <ImageBackground
+              source={{
+                uri: item.thumbnails?.sort((a, b) => (a?.width || 0) - (b?.width || 0))[
+                  Math.min(item.thumbnails.length - 1, 1)
+                ]?.id,
+              }}
+              style={[IMAGE_STYLE, { flex: 1, width: '100%', height: '100%' }]}
+              resizeMode="cover"
+              onError={() => console.log('Image failed to load:', item.thumbnail)}>
+              <View className="absolute bottom-2 right-2 rounded-sm bg-background/60 px-1.5 py-0.5">
+                <Text variant="muted" className="text-xs">
+                  {numberToTime(item.duration || 0)}
+                </Text>
+              </View>
+            </ImageBackground>
+          </View>
+          <Text className="mb-1 text-sm font-semibold leading-4" numberOfLines={2}>
+            {item.title}
           </Text>
-          <Text variant="muted" className="mx-1 text-xs">
-            •
+          <Text variant="muted" className="mb-1 text-xs" numberOfLines={1}>
+            {item.creator?.title}
           </Text>
-          <Text variant="muted" className="text-xs">
-            {distanceFromToday(item.createdAt || 0)}
-          </Text>
-        </View>
-      </CardContent>
-    </Card>
+          <View className="flex-row items-center">
+            <Text variant="muted" className="text-xs">
+              {miniNumber(item.view_count || 0)} views
+            </Text>
+            <Text variant="muted" className="mx-1 text-xs">
+              •
+            </Text>
+            <Text variant="muted" className="text-xs">
+              {distanceFromToday(item.createdAt || 0)}
+            </Text>
+          </View>
+        </CardContent>
+      </Card>
+    </TouchableOpacity>
   );
 }
 

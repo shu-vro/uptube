@@ -13,7 +13,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
   extra: {
-    UPTUBE_API: 'http://192.168.0.109:3000',
+    UPTUBE_API: 'http://192.168.0.115:3000',
     eas: {
       projectId: 'e85bb0bd-70bd-47ae-b3c1-085ef92c34db',
     },

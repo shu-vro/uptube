@@ -9,8 +9,6 @@ import ENV from "config/env";
 const publicKey = ENV.QUERY_PUBLIC_KEY;
 const privateKey = ENV.QUERY_PRIVATE_KEY;
 
-console.log(publicKey, privateKey);
-
 const padB64 = (s: string) => s + "=".repeat((4 - (s.length % 4)) % 4);
 
 const fromBase64Url = (b64u: string) =>

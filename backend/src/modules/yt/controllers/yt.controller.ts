@@ -11,7 +11,8 @@ export const yt = await Innertube.create({
   generate_session_locally: true,
 });
 
-export const getVideoInfo = asyncHandler(async (req: Request) => {
+// not used
+export const getVideoDetailedInfo = asyncHandler(async (req: Request) => {
   const videoId = sanitizeYtUrl(req.query.id as string);
   if (!videoId) {
     return req._error("Invalid video ID");
@@ -20,6 +21,28 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
     videoId,
     client: "YTMUSIC", // InnerTube client to use. only get necessary info
     parse: true, // tells YouTube.js to parse the response (not sent to InnerTube).
+  });
+
+  req._success(videoInfo);
+});
+
+export const getVideoInfo = asyncHandler(async (req: Request) => {
+  const videoId = sanitizeYtUrl(req.query.id as string);
+  if (!videoId) {
+    return req._error("Invalid video ID");
+  }
+  const videoInfo = await prisma.video.findFirst({
+    where: {
+      id: videoId,
+    },
+    include: {
+      creator: {
+        include: {
+          avatars: true,
+        },
+      },
+      thumbnails: true,
+    },
   });
 
   req._success(videoInfo);
