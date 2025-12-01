@@ -1,16 +1,25 @@
 import React from 'react';
-import { View, ScrollView, ActivityIndicator, Pressable, Dimensions, Image } from 'react-native';
+import {
+  View,
+  ScrollView,
+  ActivityIndicator,
+  Pressable,
+  Dimensions,
+  Image,
+  StyleSheet,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
 import { ArrowLeft } from 'lucide-react-native';
-import VideoPlayer from 'react-native-video-player';
 
 import { Text } from '@/components/ui/text';
 import { get } from '@/lib/utils/fetch';
-import type { Video } from '@/lib/types/media';
+import { Video } from '@/types/prisma';
 import { useColorScheme } from 'nativewind';
 import { THEME } from '@/lib/theme';
+import { ResizeMode } from 'react-native-video';
+import VideoPlayer from '@/components/ui/video-player';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -27,7 +36,7 @@ export default function VideoDetailScreen() {
   );
 
   const video: Video | undefined = data?.data;
-  console.log(JSON.stringify(video, null, 2));
+  // console.log(JSON.stringify(video, null, 2));
 
   if (isLoading) {
     return (
@@ -55,9 +64,6 @@ export default function VideoDetailScreen() {
     );
   }
 
-  // Get video stream URL from your API response
-  const videoUrl = video.streamUrl || `https://example.com/stream/${id}`;
-
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       {/* Header with back button */}
@@ -73,31 +79,7 @@ export default function VideoDetailScreen() {
       <ScrollView className="flex-1">
         {/* Video Player */}
         <View className="w-full bg-black">
-          <VideoPlayer
-            video={{ uri: 'https://www.pexels.com/download/video/6442007/' || videoUrl }}
-            videoWidth={SCREEN_WIDTH}
-            videoHeight={(SCREEN_WIDTH * 9) / 16} // 16:9 aspect ratio
-            thumbnail={{ uri: video.thumbnails?.[0]?.id }}
-            autoplay={false}
-            resizeMode="contain"
-            customStyles={{
-              wrapper: {},
-              video: { backgroundColor: '#000' },
-              controls: {},
-              playControl: {},
-              controlButton: {},
-              controlIcon: { color: '#fff' },
-              playIcon: { color: '#fff' },
-              seekBar: {},
-              seekBarFullWidth: {},
-              seekBarProgress: { backgroundColor: colors.primary },
-              seekBarKnob: { backgroundColor: colors.primary },
-              seekBarBackground: { backgroundColor: 'rgba(255,255,255,0.3)' },
-              thumbnail: {},
-              playButton: {},
-              playArrow: {},
-            }}
-          />
+          <VideoPlayer video={video} />
         </View>
 
         {/* Video Info */}
