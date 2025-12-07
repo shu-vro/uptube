@@ -1,6 +1,8 @@
 import logger from "config/logger/pino.logger";
 import { Innertube, YTNodes } from "youtubei.js";
 import { sanitizeYtUrl } from "utils/yt";
+import { parseDurationToSeconds } from "utils/yt/parseDurationToSeconds";
+import { parseViewCount } from "utils/yt/parseViewCount";
 
 /**
  * ## Explanation of how this algo works:
@@ -66,31 +68,34 @@ export async function searchYtVideosAndSaveToDB(
   // For creators
   if (missingCreatorIds.length > 0) {
     // console.time("three");
-    const channelInfos = await Promise.all(
+    const channelInfos = await Promise.allSettled(
       missingCreatorIds.map((id) => yt.getChannel(id))
     );
     // console.timeEnd("three");
 
     // console.time("four");
     // Upsert only missing creators
-    const upsertOps = channelInfos.map((info) => {
-      const md = info.metadata;
-      return prisma.creator.upsert({
-        where: { id: md.external_id },
-        update: {
-          title: md.title,
-          description: md.description,
-          url: md.url,
-          vanity_channel_url: md.vanity_channel_url,
-        },
-        create: {
-          id: md.external_id,
-          title: md.title || "Unknown Title",
-          description: md.description || "No Description",
-          url: md.url || `https://www.youtube.com/channel/${md.external_id}`,
-          vanity_channel_url: md.vanity_channel_url || null,
-        },
-      });
+    const upsertOps = channelInfos.flatMap((info) => {
+      if (info.status !== "fulfilled") return [];
+      const md = info.value.metadata;
+      return [
+        prisma.creator.upsert({
+          where: { id: md.external_id },
+          update: {
+            title: md.title,
+            description: md.description,
+            url: md.url,
+            vanity_channel_url: md.vanity_channel_url,
+          },
+          create: {
+            id: md.external_id,
+            title: md.title || "Unknown Title",
+            description: md.description || "No Description",
+            url: md.url || `https://www.youtube.com/channel/${md.external_id}`,
+            vanity_channel_url: md.vanity_channel_url || null,
+          },
+        }),
+      ];
     });
     // console.timeEnd("four");
 
@@ -100,14 +105,15 @@ export async function searchYtVideosAndSaveToDB(
 
     // console.time("six");
     // Handle avatars for new creators only
-    const allAvatars = channelInfos.flatMap((info) =>
-      (info.metadata.thumbnail || []).map((t) => ({
+    const allAvatars = channelInfos.flatMap((info) => {
+      if (info.status !== "fulfilled") return [];
+      return (info.value.metadata.thumbnail || []).map((t) => ({
         id: t.url,
-        creator_id: info.metadata.external_id,
+        creator_id: info.value.metadata.external_id,
         width: parseInt(t.width?.toString() ?? "0", 10),
         height: parseInt(t.height?.toString() ?? "0", 10),
-      }))
-    );
+      }));
+    });
 
     if (allAvatars.length > 0) {
       await prisma.thumbnail.createMany({
@@ -121,7 +127,7 @@ export async function searchYtVideosAndSaveToDB(
   // Fetch missing videos
   if (missingVideoIds.length > 0) {
     // console.time("seven");
-    const videoInfos = await Promise.all(
+    const videoInfos = await Promise.allSettled(
       missingVideoIds.map(async (id) => {
         const videoId = sanitizeYtUrl(id);
         if (!videoId) return null;
@@ -139,6 +145,8 @@ export async function searchYtVideosAndSaveToDB(
           const creator =
             existingCreatorMap.get(videoDetails.channel_id) ||
             newCreators.find((c) => c.id === videoDetails.channel_id);
+
+          if (!creator) return null;
 
           return {
             where: { id: videoDetails.id },
@@ -176,9 +184,12 @@ export async function searchYtVideosAndSaveToDB(
     // console.time("eight");
     // Upsert only new videos
     newVideos = await prisma.$transaction(
-      videoInfos
-        .filter((v): v is NonNullable<typeof v> => v !== null)
-        .map((v) => prisma.video.upsert(v))
+      videoInfos.flatMap((info) => {
+        if (info && info.status === "fulfilled" && info.value !== null) {
+          return [prisma.video.upsert(info.value)];
+        }
+        return [];
+      })
     );
     // console.timeEnd("eight");
   }

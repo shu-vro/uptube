@@ -42,6 +42,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/icons/icons-folder/iTunesArtwork@2x.png',
   },
   plugins: [
+    [
+      'react-native-video',
+      {
+        enableAndroidPictureInPicture: true,
+        enableBackgroundAudio: true,
+      },
+    ],
     'expo-router',
     [
       'expo-splash-screen',

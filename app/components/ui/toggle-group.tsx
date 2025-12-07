@@ -65,7 +65,7 @@ function ToggleGroupItem({
     <TextClassContext.Provider
       value={cn(
         'text-sm text-foreground font-medium',
-        ToggleGroupPrimitive.utils.getIsSelected(value, props.value)
+        ToggleGroupPrimitive.utils.getIsSelected(value ?? undefined, props.value)
           ? 'text-accent-foreground'
           : Platform.select({ web: 'group-hover:text-muted-foreground' })
       )}>
@@ -76,7 +76,7 @@ function ToggleGroupItem({
             size: context.size || size,
           }),
           props.disabled && 'opacity-50',
-          ToggleGroupPrimitive.utils.getIsSelected(value, props.value) && 'bg-accent',
+          ToggleGroupPrimitive.utils.getIsSelected(value ?? undefined, props.value) && 'bg-accent',
           'min-w-0 shrink-0 rounded-none shadow-none',
           isFirst && 'rounded-l-md',
           isLast && 'rounded-r-md',

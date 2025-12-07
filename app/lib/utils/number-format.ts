@@ -4,7 +4,8 @@ export const miniNumber = (value: number) => {
   return numeral(value).format('0a').toUpperCase();
 };
 
-export const numberToTime = (value: number) => {
+export const numberToTime = (value: number | undefined) => {
+  value = value || 0;
   const hours = Math.floor(value / 3600);
   const minutes = Math.floor((value % 3600) / 60);
   const seconds = Math.floor(value % 60);

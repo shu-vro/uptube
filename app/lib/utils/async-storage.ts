@@ -33,8 +33,14 @@ export function useAsyncItem(
       const data = await getItem(key);
       return data;
     };
-    fetchData().then((data) => setData(data));
-  }, [key]);
+    fetchData().then((data) => {
+      if (data !== null) {
+        setData(data);
+      } else if (defaultValue !== undefined) {
+        setData(defaultValue);
+      }
+    });
+  }, [key, defaultValue]);
 
   const setAsyncData = async (value: any) => {
     await setItem(key, value);

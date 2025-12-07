@@ -117,6 +117,15 @@ export const home = asyncHandler(async (req: Request) => {
 // const info = await yt.search("what is binary search?");
 // const info = await yt.getHomeFeed();
 export const doSomething = asyncHandler(async (req: Request) => {
-  const info = await yt.search("classical music", {});
-  req._success({ message: "Fetched home feed", data: info });
+  // const info = await yt.search("classical music", {
+  //   type: "video",
+  // });
+
+  // const videoInfo = await yt.actions.execute("/player", {
+  //   videoId: "5758jHtfBUM",
+  //   client: "YTMUSIC",
+  //   parse: true,
+  // });
+  const videoInfo = await yt.getBasicInfo("5758jHtfBUM");
+  req._success({ message: "Fetched home feed", data: videoInfo });
 });

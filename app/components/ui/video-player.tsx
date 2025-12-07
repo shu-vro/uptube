@@ -7,6 +7,7 @@ import {
   Dimensions,
   ActivityIndicator,
   TouchableOpacity,
+  BackHandler,
 } from 'react-native';
 import {
   Play,
@@ -17,6 +18,7 @@ import {
   Minimize,
   Volume2,
   VolumeX,
+  PictureInPicture2,
 } from 'lucide-react-native';
 import { Video as VideoType } from '@/types/prisma';
 import Slider from '@react-native-community/slider';
@@ -32,12 +34,15 @@ import Animated, {
   FadeOut,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 import { MaterialIcons } from '@react-native-vector-icons/material-icons';
 
 type Props = {
   video: VideoType;
   style?: any;
+  onFullScreenChange?: (isFullscreen: boolean) => void;
+  onPipChange?: (isActive: boolean) => void;
 } & ReactVideoProps;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -51,7 +56,13 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export default function VideoPlayer({ video, style, ...rest }: Props) {
+export default function VideoPlayer({
+  video,
+  style,
+  onFullScreenChange,
+  onPipChange,
+  ...rest
+}: Props) {
   const videoRef = useRef<VideoRef>(null);
   const [paused, setPaused] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -60,6 +71,7 @@ export default function VideoPlayer({ video, style, ...rest }: Props) {
   const [volume, setVolume] = useState(1.0);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [videoSize, setVideoSize] = useState({ width: 0, height: 0 });
   const scale = useSharedValue(1);
@@ -73,6 +85,32 @@ export default function VideoPlayer({ video, style, ...rest }: Props) {
   const speedMessageOpacity = useSharedValue(0);
 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (isFullscreen) {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      setIsFullscreen(false);
+      onFullScreenChange?.(false);
+    } else {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+      setIsFullscreen(true);
+      onFullScreenChange?.(true);
+    }
+  }, [isFullscreen, onFullScreenChange]);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isFullscreen) {
+        toggleFullscreen();
+        return true;
+      }
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+    return () => subscription.remove();
+  }, [isFullscreen, toggleFullscreen]);
 
   const showControls = useCallback(() => {
     setControlsVisible(true);
@@ -129,6 +167,10 @@ export default function VideoPlayer({ video, style, ...rest }: Props) {
 
     hideControls();
   };
+
+  const enterPip = useCallback(() => {
+    videoRef.current?.enterPictureInPicture();
+  }, []);
 
   const pinch = Gesture.Pinch()
     .onUpdate((e) => {
@@ -287,6 +329,9 @@ export default function VideoPlayer({ video, style, ...rest }: Props) {
                 onProgress={handleProgress}
                 onLoad={handleLoad}
                 onBuffer={({ isBuffering }) => setIsBuffering(isBuffering)}
+                onPictureInPictureStatusChanged={(e) => {
+                  onPipChange?.(e.isActive);
+                }}
                 poster={video.thumbnails?.[0]?.id}
                 posterResizeMode="cover"
                 {...rest}
@@ -330,10 +375,7 @@ export default function VideoPlayer({ video, style, ...rest }: Props) {
           {isBuffering ? (
             <ActivityIndicator size="large" color="white" />
           ) : (
-            <TouchableOpacity
-              className="rounded-full bg-black/40 p-4"
-              onPress={togglePlayPause}
-              pointerEvents="auto">
+            <TouchableOpacity className="rounded-full bg-black/40 p-4" onPress={togglePlayPause}>
               {paused ? (
                 <Play size={48} color="white" fill="white" />
               ) : (
@@ -360,6 +402,16 @@ export default function VideoPlayer({ video, style, ...rest }: Props) {
             thumbTintColor="#FFFFFF"
           />
           <Text className="w-12 font-medium text-white">{formatTime(duration)}</Text>
+          <TouchableOpacity onPress={enterPip} className="ml-2">
+            <PictureInPicture2 size={20} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={toggleFullscreen} className="ml-2">
+            {isFullscreen ? (
+              <Minimize size={20} color="white" />
+            ) : (
+              <Maximize size={20} color="white" />
+            )}
+          </TouchableOpacity>
         </View>
       </Animated.View>
     </View>
