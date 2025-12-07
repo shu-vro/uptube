@@ -78,8 +78,8 @@ export default function VideoDetailScreen() {
 
       <ScrollView className="flex-1">
         {/* Video Player */}
-        <View className="w-full bg-black">
-          <VideoPlayer video={video} />
+        <View className="aspect-video w-full bg-black">
+          <VideoPlayer video={video} style={{ width: '100%', height: '100%' }} />
         </View>
 
         {/* Video Info */}
