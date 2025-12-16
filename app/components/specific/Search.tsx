@@ -34,7 +34,7 @@ export const VideoCardList = ({ item }: { item: Video }) => {
               }}
               style={[IMAGE_STYLE, { flex: 1, width: '100%', height: '100%' }]}
               resizeMode="cover"
-              onError={() => console.log('Image failed to load:', item.thumbnail)}>
+              onError={() => console.log('Image failed to load:', item.thumbnails)}>
               <View className="absolute inset-0 items-center justify-center">
                 <Lucide name="circle-play" size={24} color={theme.mutedForeground} />
               </View>
@@ -61,7 +61,7 @@ export const VideoCardList = ({ item }: { item: Video }) => {
                 •
               </Text>
               <Text variant="muted" className="text-xs">
-                {distanceFromToday(item.createdAt || 0)}
+                {distanceFromToday(item.createdAt.toString() || 0)}
               </Text>
             </View>
           </View>
@@ -86,11 +86,11 @@ export function VideoCardGrid({ item }: { item: Video }) {
               source={{
                 uri: item.thumbnails?.sort((a, b) => (a?.width || 0) - (b?.width || 0))[
                   Math.min(item.thumbnails.length - 1, 1)
-                ]?.id,
+                ]?.url,
               }}
               style={[IMAGE_STYLE, { flex: 1, width: '100%', height: '100%' }]}
               resizeMode="cover"
-              onError={() => console.log('Image failed to load:', item.thumbnail)}>
+              onError={() => console.log('Image failed to load:', item.thumbnails)}>
               <View className="absolute bottom-2 right-2 rounded-sm bg-background/60 px-1.5 py-0.5">
                 <Text variant="muted" className="text-xs">
                   {numberToTime(item.duration || 0)}
@@ -112,7 +112,7 @@ export function VideoCardGrid({ item }: { item: Video }) {
               •
             </Text>
             <Text variant="muted" className="text-xs">
-              {distanceFromToday(item.createdAt || 0)}
+              {distanceFromToday(item.createdAt.toString() || 0)}
             </Text>
           </View>
         </CardContent>

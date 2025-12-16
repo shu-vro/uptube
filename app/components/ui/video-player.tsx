@@ -39,7 +39,8 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { MaterialIcons } from '@react-native-vector-icons/material-icons';
 
 type Props = {
-  video: VideoType;
+  src: string;
+  poster?: string;
   style?: any;
   onFullScreenChange?: (isFullscreen: boolean) => void;
   onPipChange?: (isActive: boolean) => void;
@@ -57,7 +58,8 @@ function formatTime(seconds: number): string {
 }
 
 export default function VideoPlayer({
-  video,
+  src,
+  poster,
   style,
   onFullScreenChange,
   onPipChange,
@@ -319,7 +321,7 @@ export default function VideoPlayer({
               <Video
                 ref={videoRef}
                 source={{
-                  uri: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+                  uri: src,
                 }}
                 style={StyleSheet.absoluteFill}
                 resizeMode="contain"
@@ -332,7 +334,7 @@ export default function VideoPlayer({
                 onPictureInPictureStatusChanged={(e) => {
                   onPipChange?.(e.isActive);
                 }}
-                poster={video.thumbnails?.[0]?.id}
+                poster={poster}
                 posterResizeMode="cover"
                 {...rest}
               />

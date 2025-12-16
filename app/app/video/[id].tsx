@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  View,
-  ScrollView,
-  ActivityIndicator,
-  Pressable,
-  Dimensions,
-  Image,
-  StyleSheet,
-} from 'react-native';
+import { View, ScrollView, ActivityIndicator, Pressable, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
@@ -15,15 +7,12 @@ import { ArrowLeft } from 'lucide-react-native';
 import { useState, useCallback } from 'react';
 
 import { Text } from '@/components/ui/text';
-import { get } from '@/lib/utils/fetch';
+import { get, post } from '@/lib/utils/fetch';
 import { Video } from '@/types/prisma';
 import { useColorScheme } from 'nativewind';
 import { THEME } from '@/lib/theme';
-import { ResizeMode } from 'react-native-video';
 import VideoPlayer from '@/components/ui/video-player';
 import { numberToTime } from '@/lib/utils/number-format';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -45,11 +34,17 @@ export default function VideoDetailScreen() {
   // Fetch video details
   const { data, error, isLoading } = useSWR(
     id ? `/public/yt/video?id=${id}` : null,
-    (url: string) => get(url)
+    (url: string) => get({ endpoint: url })
   );
 
-  const video: Video | undefined = data?.data;
-  // console.log(JSON.stringify(video, null, 2));
+  // fetch download url
+  const { data: downloadData } = useSWR(
+    id ? `/public/yt/download-data/${id}` : null,
+    (url: string) => post({ endpoint: url })
+  );
+
+  const video: Video | undefined = data;
+  console.log(JSON.stringify(downloadData, null, 2));
 
   if (isLoading) {
     return (
@@ -105,7 +100,8 @@ export default function VideoDetailScreen() {
               : 'aspect-video w-full bg-black'
           }>
           <VideoPlayer
-            video={video}
+            poster={video.thumbnails?.[0]?.id}
+            src={downloadData?.data.url}
             style={{ width: '100%', height: '100%' }}
             onFullScreenChange={onFullScreenChange}
             onPipChange={onPipChange}

@@ -4,13 +4,15 @@ import { asyncHandler } from "utils/async-handler";
 import { Innertube, UniversalCache, YTNodes } from "youtubei.js";
 import { Platform, Types } from "youtubei.js/web";
 import { sanitizeYtUrl } from "utils/yt";
-import { searchYtVideosAndSaveToDB } from "./yt.search.controller";
+import { searchYtVideosAndSaveToDB, updateVideo } from "./yt.search.controller";
 import _ from "lodash";
 import {
   idSchema,
   paginationSchema,
   searchQuerySchema,
 } from "../validators/yt.validator";
+import { XMLParser } from "fast-xml-parser";
+import { Video } from "generated/prisma/client";
 
 Platform.shim.eval = async (
   data: Types.BuildScriptResult,
@@ -72,21 +74,10 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
     },
   });
 
-  extraworks(videoId);
+  updateVideo(videoInfo as Video);
 
   req._success(videoInfo);
 });
-
-async function extraworks(videoId: string) {
-  // crunch latest data about this under the hood.
-  const info = await yt.actions.execute("/player", {
-    videoId,
-    client: "YTMUSIC", // InnerTube client to use. only get necessary info
-    parse: true, // tells YouTube.js to parse the response (not sent to InnerTube).
-  });
-
-  console.log(info);
-}
 
 export const searchVideos = asyncHandler(async (req: Request) => {
   const parseResult = searchQuerySchema.safeParse(req.query);
@@ -157,8 +148,8 @@ export const home = asyncHandler(async (req: Request) => {
 });
 
 export const getDownloadData = asyncHandler(
-  async (req: Request<{}, { id: string }, Types.FormatOptions>) => {
-    const result = idSchema.safeParse(req.query.id);
+  async (req: Request<any, any, Types.FormatOptions>) => {
+    const result = idSchema.safeParse(req.params.id);
     if (!result.success) {
       return req._error({ message: result.error.issues[0].message });
     }
@@ -183,12 +174,23 @@ export const getDownloadData = asyncHandler(
 // const info = await yt.search("what is binary search?");
 // const info = await yt.getHomeFeed();
 export const do_something = asyncHandler(async (req: Request) => {
-  let body = req.body;
-  const videoInfo = await yt.getStreamingData("m6qieXZsgwo", {
-    format: "any",
-    type: "video+audio",
-    quality: "360p",
-    ...body,
+  const videoId = sanitizeYtUrl(req.query.id as string);
+  if (!videoId) {
+    return req._error("Invalid video ID");
+  }
+  const videoInfo = await prisma.video.findFirst({
+    where: {
+      id: videoId,
+    },
+    include: {
+      creator: {
+        include: {
+          avatars: true,
+        },
+      },
+      thumbnails: true,
+    },
   });
-  req._success({ message: "Fetched home feed", data: videoInfo });
+
+  req._success(videoInfo);
 });

@@ -67,8 +67,8 @@ import { useAsyncItem } from '@/lib/utils/async-storage';
 const getSuggestions = async (query: string) => {
   try {
     if (query.length < 3) return [];
-    const data = await get('/public/yt/show-suggestions', { q: query });
-    return data?.data || [];
+    const data = await get({ endpoint: '/public/yt/show-suggestions', params: { q: query } });
+    return data || [];
   } catch (e) {
     console.error('Error fetching suggestions:', e);
     return [];
@@ -79,8 +79,8 @@ const getSuggestions = async (query: string) => {
 const searchAPI = async (query: string) => {
   try {
     if (query.length < 3) return [];
-    const data = await get('/public/yt/search', { q: query });
-    return data?.data || [];
+    const data = await get({ endpoint: '/public/yt/search', params: { q: query } });
+    return data || [];
   } catch (e) {
     console.error('Error fetching Videos', e);
     return [];

@@ -5,9 +5,9 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider        = "prisma-client" // or `prisma-client-js`
-  output   = "../src/generated/prisma"
-  engineType      = "client" // enable Prisma ORM without Rust
+  provider   = "prisma-client" // or `prisma-client-js`
+  output     = "../src/generated/prisma"
+  engineType = "client" // enable Prisma ORM without Rust
 }
 
 datasource db {
@@ -26,19 +26,50 @@ model User {
 }
 
 model Video {
-  id                String      @id @default(cuid())
+  id                String    @id @default(cuid())
   title             String
   channel_id        String
   short_description String?
-  duration          Int
-  thumbnails        Thumbnail[] @relation("VideoToThumbnails")
-  view_count        Int
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  type              String      @default("video") // video, short, live
-  extra             Json?       @default("{}")
+  duration          Int       @default(0)
+  view_count        Int       @default(0)
+  type              String    @default("video")
+  keywords          String[]  @default([])
+  like_count        Int       @default(0)
+  category          String?
+  captions          Caption[]
+  extra             Json?     @default("{}")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  creator Creator @relation(fields: [channel_id], references: [id])
+  thumbnails Thumbnail[] @relation("VideoToThumbnails")
+  creator    Creator     @relation(fields: [channel_id], references: [id])
+
+  nextEdges VideoNext[] @relation("FromVideo")
+  prevEdges VideoNext[] @relation("ToVideo")
+}
+
+model VideoNext {
+  fromId String
+  toId   String
+
+  position  Int?
+  extra     Json?    @default("{}")
+  createdAt DateTime @default(now())
+
+  from Video @relation("FromVideo", fields: [fromId], references: [id], onDelete: Cascade)
+  to   Video @relation("ToVideo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@id([fromId, toId])
+  @@index([toId])
+}
+
+model Caption {
+  base_url         String  @id
+  base_url_to_json Json?   @default("{}") // make sure to convert xml to string.
+  video_id         String?
+  language_code    String?
+  video            Video?  @relation(fields: [video_id], references: [id])
+  extra            Json?   @default("{}")
 }
 
 // should save only 1, because the urls are the same
@@ -46,6 +77,7 @@ model Thumbnail {
   id         String   @id @default(cuid())
   video_id   String?
   creator_id String?
+  url        String   @unique
   width      Int
   height     Int
   createdAt  DateTime @default(now())

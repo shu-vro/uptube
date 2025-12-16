@@ -5,10 +5,12 @@ import { encryptHybrid } from './encryption';
 
 const request = async (
   method: 'get' | 'put' | 'post' | 'delete' = 'get',
-  endpoint: string,
-  payload?: any,
-  token?: string,
-  full: boolean = false
+  {
+    endpoint = '',
+    payload = {},
+    token = '',
+    full = false,
+  }: { endpoint: string; payload?: any; token?: string; full?: boolean }
 ) => {
   try {
     const FEATURES = await getItem('features');
@@ -39,7 +41,7 @@ const request = async (
       headers,
     });
     if (response.data.success) {
-      return full ? response : response.data;
+      return full ? response : response.data?.data;
     }
     return null;
   } catch (error) {
@@ -47,20 +49,30 @@ const request = async (
     return null;
   }
 };
-export const get = async (
-  endpoint: string,
-  params?: any,
-  token?: string,
-  full: boolean = false
-) => {
-  return await request('get', endpoint, params, token, full);
+export const get = async ({
+  endpoint = '',
+  params = {},
+  token = '',
+  full = false,
+}: Partial<{
+  endpoint: string;
+  params?: any;
+  token?: string;
+  full: boolean;
+}>) => {
+  return await request('get', { endpoint, payload: params, token, full });
 };
 
-export const post = async (
-  endpoint: string,
-  params?: any,
-  token?: string,
-  full: boolean = false
-) => {
-  return await request('post', endpoint, params, token, full);
+export const post = async ({
+  endpoint = '',
+  params = {},
+  token = '',
+  full = false,
+}: Partial<{
+  endpoint: string;
+  params?: any;
+  token?: string;
+  full: boolean;
+}>) => {
+  return await request('post', { endpoint, payload: params, token, full });
 };

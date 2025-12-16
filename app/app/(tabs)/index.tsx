@@ -86,20 +86,21 @@ const dummy = {
 } as Video;
 // const x : Avatar
 export default function Screen() {
-  const res = useSWR(
+  const { data } = useSWR(
     '/public/yt/home',
     (url) => {
-      return get(url);
+      return get({ endpoint: url });
     },
     { refreshInterval: 120000 }
   );
+
   return (
     <SafeAreaView>
       <Header />
       <Gradient />
-      {res.data?.data ? (
+      {data ? (
         <FlatList
-          data={res.data.data}
+          data={data}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <>

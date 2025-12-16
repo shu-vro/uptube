@@ -3,7 +3,12 @@ import { Innertube, YTNodes } from "youtubei.js";
 import { sanitizeYtUrl } from "utils/yt";
 import { parseDurationToSeconds } from "utils/yt/parseDurationToSeconds";
 import { parseViewCount } from "utils/yt/parseViewCount";
+import { differenceInDays } from "utils/time";
+import { Video } from "generated/prisma/client";
+import { yt } from "./yt.controller";
+import { XMLParser } from "fast-xml-parser";
 
+const parser = new XMLParser();
 /**
  * ## Explanation of how this algo works:
  * first, it uses youtubei.js to search for videos matching the query, videos only
@@ -108,7 +113,7 @@ export async function searchYtVideosAndSaveToDB(
     const allAvatars = channelInfos.flatMap((info) => {
       if (info.status !== "fulfilled") return [];
       return (info.value.metadata.thumbnail || []).map((t) => ({
-        id: t.url,
+        url: t.url,
         creator_id: info.value.metadata.external_id,
         width: parseInt(t.width?.toString() ?? "0", 10),
         height: parseInt(t.height?.toString() ?? "0", 10),
@@ -165,7 +170,7 @@ export async function searchYtVideosAndSaveToDB(
               view_count: videoDetails.view_count || 0,
               thumbnails: {
                 create: (videoDetails.thumbnail || []).map((t) => ({
-                  id: t.url,
+                  url: t.url,
                   width: t.width || 0,
                   height: t.height || 0,
                 })),
@@ -204,4 +209,166 @@ export async function searchYtVideosAndSaveToDB(
     .filter((v): v is NonNullable<typeof v> => v !== undefined);
 
   return orderedResults;
+}
+
+export async function updateVideo(videoInfo: Video) {
+  if (
+    differenceInDays(
+      videoInfo?.createdAt.toString() || Date.now().toString(),
+      Date.now().toString()
+    ) > 7
+  ) {
+    logger.info(`Updating video ${videoInfo.id}`);
+    const info = await yt.getInfo(videoInfo.id);
+
+    const captions = {};
+
+    await Promise.all(
+      info.captions?.caption_tracks?.map(async (track) => {
+        try {
+          const xml = await fetch(track.base_url).then((res) => res.text());
+          const json = parser.parse(xml);
+          captions[track.base_url] = json;
+        } catch (error) {
+          logger.error(
+            { err: error },
+            `Failed to fetch caption for ${track.language_code}`
+          );
+        }
+      }) || []
+    );
+
+    const nextVideos =
+      info.player_overlays?.end_screen?.results
+        .as(YTNodes.EndScreenVideo)
+        ?.filter((v) => v.is(YTNodes.EndScreenVideo))
+        .map((v) => v.as(YTNodes.EndScreenVideo)) || [];
+
+    try {
+      await prisma.video.update({
+        where: {
+          id: videoInfo.id,
+        },
+        data: {
+          short_description: info.basic_info.short_description
+            ? String(info.basic_info.short_description)
+            : null,
+          title: info.basic_info.title ? String(info.basic_info.title) : "",
+          view_count: Number(info.basic_info.view_count) || 0,
+          duration: Number(info.basic_info.duration) || 0,
+          like_count: Number(info.basic_info.like_count) || 0,
+          keywords: info.basic_info.keywords || [],
+          category: info.basic_info.category
+            ? String(info.basic_info.category)
+            : null,
+          captions: {
+            upsert:
+              info.captions?.caption_tracks?.map((track) => ({
+                where: {
+                  base_url: track.base_url,
+                },
+                create: {
+                  base_url: track.base_url,
+                  language_code: track.language_code,
+                  base_url_to_json: captions?.[track.base_url],
+                },
+                update: {
+                  language_code: track.language_code,
+                  base_url_to_json: captions?.[track.base_url],
+                },
+              })) || [],
+          },
+          thumbnails: {
+            upsert:
+              info.basic_info.thumbnail?.map((thumbnail) => ({
+                where: {
+                  url: thumbnail.url,
+                },
+                create: {
+                  url: thumbnail.url,
+                  width: thumbnail.width,
+                  height: thumbnail.height,
+                },
+                update: {
+                  width: thumbnail.width,
+                  height: thumbnail.height,
+                },
+              })) || [],
+          },
+          nextEdges: {
+            upsert: nextVideos.map((video, i) => ({
+              where: {
+                fromId_toId: {
+                  fromId: videoInfo.id,
+                  toId: video.id,
+                },
+              },
+              update: {
+                position: i,
+                to: {
+                  update: {
+                    title: video.title.toString(),
+                    duration: video.duration.seconds,
+                    thumbnails: {
+                      upsert: video.thumbnails.map((thumbnail) => ({
+                        where: {
+                          url: thumbnail.url,
+                        },
+                        create: {
+                          url: thumbnail.url,
+                          width: thumbnail.width,
+                          height: thumbnail.height,
+                        },
+                        update: {
+                          width: thumbnail.width,
+                          height: thumbnail.height,
+                        },
+                      })),
+                    },
+                  },
+                },
+              },
+              create: {
+                position: i,
+                to: {
+                  connectOrCreate: {
+                    where: {
+                      id: video.id,
+                    },
+                    create: {
+                      id: video.id,
+                      title: video.title.toString(),
+                      duration: video.duration.seconds,
+                      thumbnails: {
+                        create: video.thumbnails.map((thumbnail) => ({
+                          url: thumbnail.url,
+                          width: thumbnail.width,
+                          height: thumbnail.height,
+                        })),
+                      },
+                      creator: {
+                        connectOrCreate: {
+                          where: {
+                            id: video.author.id,
+                          },
+                          create: {
+                            id: video.author.id,
+                            title: video.author.name,
+                            url: video.author.url,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            })),
+          },
+        },
+      });
+    } catch (error) {
+      logger.error({ err: error }, `Failed to update video ${videoInfo.id}`);
+      console.error(error);
+    }
+  }
 }

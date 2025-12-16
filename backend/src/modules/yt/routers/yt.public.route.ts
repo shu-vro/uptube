@@ -172,7 +172,7 @@ router.get("/home", home);
 router.get("/show-suggestions", showSuggestions);
 /**
  * @openapi
- * /api/v1/public/yt/get-download-data/{id}:
+ * /api/v1/public/yt/download-data/{id}:
  *   post:
  *     summary: Get download data for a YouTube video
  *     description: Retrieves streaming data for a YouTube video based on the provided ID and optional format options in the request body.
@@ -320,7 +320,7 @@ router.get("/show-suggestions", showSuggestions);
  *       500:
  *         description: Server error
  */
-router.post("/get-download-data/:id", getDownloadData);
-router.post("/do-something", do_something);
+router.post("/download-data/:id", getDownloadData);
+router.get("/do-something", do_something);
 
 export default router;
