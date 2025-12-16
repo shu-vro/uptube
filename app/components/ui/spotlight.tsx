@@ -53,7 +53,10 @@ const Spotlight: React.FC<SpotlightProps> = ({
       </View>
 
       <BlurView
-        style={StyleSheet.absoluteFill}
+        style={{
+          ...StyleSheet.absoluteFillObject,
+          height: SCREEN_HEIGHT + 200,
+        }}
         blurType={colorScheme === 'dark' ? 'dark' : 'light'}
         blurAmount={20}
         reducedTransparencyFallbackColor={colors.background}

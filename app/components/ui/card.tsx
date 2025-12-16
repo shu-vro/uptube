@@ -1,17 +1,29 @@
 import { Text, TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
-import { View, type ViewProps } from 'react-native';
+import { StyleSheet, View, type ViewProps } from 'react-native';
+import { BlurView } from '@react-native-community/blur';
+import { THEME } from '@/lib/theme';
+import { useColorScheme } from 'nativewind';
 
 function Card({ className, ...props }: ViewProps & React.RefAttributes<View>) {
+  const { colorScheme } = useColorScheme();
+  const colors = THEME[colorScheme ?? 'light'];
   return (
-    <TextClassContext.Provider value="text-card-foreground">
+    <TextClassContext.Provider value="text-card-foreground relative">
       <View
         className={cn(
-          'flex flex-col gap-6 rounded-xl border border-border bg-card/50 py-6 shadow-sm shadow-black/5 dark:bg-card',
+          'flex flex-col gap-6 rounded-xl border-2 border-border bg-card/10 py-6 shadow-sm shadow-black/5 dark:bg-muted/30',
           className
         )}
-        {...props}
-      />
+        {...props}>
+        <BlurView
+          // style={}
+          blurType={colorScheme === 'dark' ? 'dark' : 'light'}
+          blurAmount={20}
+          reducedTransparencyFallbackColor={colors.background}
+        />
+        {props.children}
+      </View>
     </TextClassContext.Provider>
   );
 }

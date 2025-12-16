@@ -70,9 +70,35 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
           avatars: true,
         },
       },
-      thumbnails: true,
+      thumbnails: {
+        orderBy: {
+          width: "desc",
+        },
+        take: 2,
+      },
+      nextEdges: {
+        orderBy: {
+          position: "asc",
+        },
+        take: 10,
+        skip: 0,
+        include: {
+          to: {
+            include: {
+              creator: true,
+              thumbnails: {
+                take: 2,
+                orderBy: {
+                  width: "desc",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
+  // todo: fix zero views.
 
   updateVideo(videoInfo as Video);
 
@@ -118,10 +144,20 @@ export const home = asyncHandler(async (req: Request) => {
       include: {
         creator: {
           include: {
-            avatars: true,
+            avatars: {
+              orderBy: {
+                width: "asc",
+              },
+              take: 1,
+            },
           },
         },
-        thumbnails: true,
+        thumbnails: {
+          orderBy: {
+            width: "desc",
+          },
+          take: 2,
+        },
       },
     });
     req._success(videos);
@@ -138,10 +174,20 @@ export const home = asyncHandler(async (req: Request) => {
     include: {
       creator: {
         include: {
-          avatars: true,
+          avatars: {
+            orderBy: {
+              width: "asc",
+            },
+            take: 1,
+          },
         },
       },
-      thumbnails: true,
+      thumbnails: {
+        orderBy: {
+          width: "desc",
+        },
+        take: 2,
+      },
     },
   });
   req._success(videos);

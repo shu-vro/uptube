@@ -75,7 +75,7 @@ export function VideoCardGrid({ item }: { item: Video }) {
   const router = useRouter();
   return (
     <TouchableOpacity
-      activeOpacity={0.5}
+      activeOpacity={0.8}
       onPress={() => {
         router.push(`/video/${item.id}`);
       }}>

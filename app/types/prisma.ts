@@ -28,7 +28,7 @@ export interface Video {
   like_count: number;
   category: string | null;
   captions?: Caption[];
-  extra: JsonValue | null;
+  extra: Record<string, any>;
   createdAt: Date | string;
   updatedAt: Date | string;
   thumbnails?: Thumbnail[];

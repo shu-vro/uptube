@@ -6,6 +6,7 @@ import { parseViewCount } from "utils/yt/parseViewCount";
 import { differenceInDays } from "utils/time";
 import { Video } from "generated/prisma/client";
 import { yt } from "./yt.controller";
+import _ from "lodash";
 import { XMLParser } from "fast-xml-parser";
 
 const parser = new XMLParser();
@@ -110,15 +111,18 @@ export async function searchYtVideosAndSaveToDB(
 
     // console.time("six");
     // Handle avatars for new creators only
-    const allAvatars = channelInfos.flatMap((info) => {
-      if (info.status !== "fulfilled") return [];
-      return (info.value.metadata.thumbnail || []).map((t) => ({
-        url: t.url,
-        creator_id: info.value.metadata.external_id,
-        width: parseInt(t.width?.toString() ?? "0", 10),
-        height: parseInt(t.height?.toString() ?? "0", 10),
-      }));
-    });
+    const allAvatars = _.uniqBy(
+      channelInfos.flatMap((info) => {
+        if (info.status !== "fulfilled") return [];
+        return (info.value.metadata.thumbnail || []).map((t) => ({
+          url: t.url.split("?")[0],
+          creator_id: info.value.metadata.external_id,
+          width: parseInt(t.width?.toString() ?? "0", 10),
+          height: parseInt(t.height?.toString() ?? "0", 10),
+        }));
+      }),
+      "url"
+    );
 
     if (allAvatars.length > 0) {
       await prisma.thumbnail.createMany({
@@ -169,11 +173,14 @@ export async function searchYtVideosAndSaveToDB(
               duration: videoDetails.duration || 0,
               view_count: videoDetails.view_count || 0,
               thumbnails: {
-                create: (videoDetails.thumbnail || []).map((t) => ({
-                  url: t.url,
-                  width: t.width || 0,
-                  height: t.height || 0,
-                })),
+                create: _.uniqBy(
+                  (videoDetails.thumbnail || []).map((t) => ({
+                    url: t.url.split("?")[0],
+                    width: t.width || 0,
+                    height: t.height || 0,
+                  })),
+                  "url"
+                ),
               },
             },
             include: { creator: true, thumbnails: true },
@@ -216,7 +223,9 @@ export async function updateVideo(videoInfo: Video) {
     differenceInDays(
       videoInfo?.createdAt.toString() || Date.now().toString(),
       Date.now().toString()
-    ) > 7
+    ) > 7 ||
+    Math.abs(videoInfo.updatedAt.getTime() - videoInfo.createdAt.getTime()) <
+      1000
   ) {
     logger.info(`Updating video ${videoInfo.id}`);
     const info = await yt.getInfo(videoInfo.id);
@@ -280,7 +289,14 @@ export async function updateVideo(videoInfo: Video) {
           },
           thumbnails: {
             upsert:
-              info.basic_info.thumbnail?.map((thumbnail) => ({
+              _.uniqBy(
+                info.basic_info.thumbnail?.map((thumbnail) => ({
+                  url: thumbnail.url.split("?")[0],
+                  width: thumbnail.width,
+                  height: thumbnail.height,
+                })) || [],
+                "url"
+              ).map((thumbnail) => ({
                 where: {
                   url: thumbnail.url,
                 },
@@ -310,7 +326,14 @@ export async function updateVideo(videoInfo: Video) {
                     title: video.title.toString(),
                     duration: video.duration.seconds,
                     thumbnails: {
-                      upsert: video.thumbnails.map((thumbnail) => ({
+                      upsert: _.uniqBy(
+                        video.thumbnails.map((thumbnail) => ({
+                          url: thumbnail.url.split("?")[0],
+                          width: thumbnail.width,
+                          height: thumbnail.height,
+                        })),
+                        "url"
+                      ).map((thumbnail) => ({
                         where: {
                           url: thumbnail.url,
                         },
@@ -340,11 +363,14 @@ export async function updateVideo(videoInfo: Video) {
                       title: video.title.toString(),
                       duration: video.duration.seconds,
                       thumbnails: {
-                        create: video.thumbnails.map((thumbnail) => ({
-                          url: thumbnail.url,
-                          width: thumbnail.width,
-                          height: thumbnail.height,
-                        })),
+                        create: _.uniqBy(
+                          video.thumbnails.map((thumbnail) => ({
+                            url: thumbnail.url.split("?")[0],
+                            width: thumbnail.width,
+                            height: thumbnail.height,
+                          })),
+                          "url"
+                        ),
                       },
                       creator: {
                         connectOrCreate: {
