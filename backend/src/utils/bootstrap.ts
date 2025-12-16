@@ -52,6 +52,7 @@ declare global {
       _success: (json: any, status?: number) => void;
       _error: (message: any, status?: number) => void;
       user?: User | null;
+      requestSent: boolean;
     }
   }
 }

@@ -7,7 +7,7 @@ const router = Router();
 
 /**
  * @openapi
- * /api/v1/features:
+ * /api/v1/public/features:
  *  get:
  *     summary: Get feature flags and encryption public key
  */

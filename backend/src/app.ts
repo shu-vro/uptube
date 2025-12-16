@@ -43,6 +43,7 @@ app.use((req, res, next) => {
     enumerable: true,
     configurable: true,
   });
+  req.requestSent = false;
 
   next();
 });

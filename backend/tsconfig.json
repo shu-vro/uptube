@@ -2,6 +2,11 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "esnext",
+    "lib": ["ESNext"],
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "allowJs": true,
+
     "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
@@ -9,7 +14,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "baseUrl": "./src",
     "paths": {
       "*": ["node_modules/*", "*"],
@@ -17,6 +22,5 @@
       "@utils/*": ["./utils/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/types/global.d.ts"],
   "exclude": ["node_modules", "**/*.spec.ts"]
 }

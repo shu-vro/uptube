@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
-  doSomething,
+  do_something,
+  getDownloadData,
   getVideoInfo,
   home,
   searchVideos,
@@ -171,13 +172,37 @@ router.get("/home", home);
 router.get("/show-suggestions", showSuggestions);
 /**
  * @openapi
- * /api/v1/public/yt/do-something:
- *   get:
- *     summary: Example debug endpoint
- *     description: Runs a sample youtube search and returns the raw response. Useful for debugging.
+ * /api/v1/public/yt/get-download-data/{id}:
+ *   post:
+ *     summary: Get download data for a YouTube video
+ *     description: Retrieves streaming data for a YouTube video based on the provided ID and optional format options in the request body.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: YouTube video ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               format:
+ *                 type: string
+ *                 description: Format type (e.g., "any")
+ *               type:
+ *                 type: string
+ *                 description: Media type (e.g., "video+audio")
+ *               quality:
+ *                 type: string
+ *                 description: Quality (e.g., "360p")
+ *               # Add other properties from Types.FormatOptions as needed
  *     responses:
  *       200:
- *         description: Debug data
+ *         description: Streaming data for the video
  *         content:
  *           application/json:
  *             schema:
@@ -186,13 +211,116 @@ router.get("/show-suggestions", showSuggestions);
  *                 success:
  *                   type: boolean
  *                   example: true
- *                 message:
- *                   type: string
+ *                 statusCode:
+ *                   type: integer
+ *                   example: 200
  *                 data:
  *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Fetched download data"
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         itag:
+ *                           type: integer
+ *                           example: 18
+ *                         url:
+ *                           type: string
+ *                           example: "https://rr1---sn-n0hhpujvh-q5jd.googlevideo.com/videoplayback?..."
+ *                         width:
+ *                           type: integer
+ *                           example: 640
+ *                         height:
+ *                           type: integer
+ *                           example: 360
+ *                         last_modified:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2025-08-06T15:20:09.240Z"
+ *                         last_modified_ms:
+ *                           type: string
+ *                           example: "1754493609240158"
+ *                         content_length:
+ *                           type: integer
+ *                           example: 33143489
+ *                         quality:
+ *                           type: string
+ *                           example: "medium"
+ *                         fps:
+ *                           type: integer
+ *                           example: 25
+ *                         quality_label:
+ *                           type: string
+ *                           example: "360p"
+ *                         projection_type:
+ *                           type: string
+ *                           example: "RECTANGULAR"
+ *                         average_bitrate:
+ *                           type: integer
+ *                           example: 420232
+ *                         bitrate:
+ *                           type: integer
+ *                           example: 420282
+ *                         audio_quality:
+ *                           type: string
+ *                           example: "AUDIO_QUALITY_LOW"
+ *                         approx_duration_ms:
+ *                           type: integer
+ *                           example: 630955
+ *                         audio_sample_rate:
+ *                           type: integer
+ *                           example: 44100
+ *                         audio_channels:
+ *                           type: integer
+ *                           example: 2
+ *                         is_drc:
+ *                           type: boolean
+ *                           example: false
+ *                         mime_type:
+ *                           type: string
+ *                           example: "video/mp4; codecs=\"avc1.42001E, mp4a.40.2\""
+ *                         is_type_otf:
+ *                           type: boolean
+ *                           example: false
+ *                         has_audio:
+ *                           type: boolean
+ *                           example: true
+ *                         has_video:
+ *                           type: boolean
+ *                           example: true
+ *                         has_text:
+ *                           type: boolean
+ *                           example: false
+ *                         language:
+ *                           type: string
+ *                           example: "en"
+ *                         is_dubbed:
+ *                           type: boolean
+ *                           example: false
+ *                         is_auto_dubbed:
+ *                           type: boolean
+ *                           example: false
+ *                         is_descriptive:
+ *                           type: boolean
+ *                           example: false
+ *                         is_secondary:
+ *                           type: boolean
+ *                           example: false
+ *                         is_original:
+ *                           type: boolean
+ *                           example: true
+ *       400:
+ *         description: Invalid video ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Server error
  */
-router.get("/do-something", doSomething);
+router.post("/get-download-data/:id", getDownloadData);
+router.post("/do-something", do_something);
 
 export default router;

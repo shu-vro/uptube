@@ -5,11 +5,12 @@ import pino from "pino";
 import pinoCaller from "pino-caller";
 import pretty from "pino-pretty";
 
-const projectRoot = path.resolve(__dirname, "../../../"); // Adjust as needed
+const projectRoot = path.resolve(__dirname, "../../../");
 
 const stream = pretty({
   levelFirst: true,
   colorize: true,
+  translateTime: "SYS:standard",
 });
 
 const logger = pinoCaller(
@@ -17,6 +18,8 @@ const logger = pinoCaller(
     {
       level: ENV.LOG_LEVEL || "info",
       enabled: !FLAGS.STOP_PINO_AT_PROD,
+      timestamp: pino.stdTimeFunctions.isoTime,
+      base: null,
     },
     stream
   ),

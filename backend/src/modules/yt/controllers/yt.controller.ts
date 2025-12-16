@@ -2,13 +2,40 @@ import logger from "config/logger/pino.logger";
 import { Request } from "express";
 import { asyncHandler } from "utils/async-handler";
 import { Innertube, UniversalCache, YTNodes } from "youtubei.js";
+import { Platform, Types } from "youtubei.js/web";
 import { sanitizeYtUrl } from "utils/yt";
 import { searchYtVideosAndSaveToDB } from "./yt.search.controller";
 import _ from "lodash";
+import {
+  idSchema,
+  paginationSchema,
+  searchQuerySchema,
+} from "../validators/yt.validator";
+
+Platform.shim.eval = async (
+  data: Types.BuildScriptResult,
+  env: Record<string, Types.VMPrimative>
+) => {
+  const properties: string[] = [];
+
+  if (env.n) {
+    properties.push(`n: exportedVars.nFunction("${env.n}")`);
+  }
+
+  if (env.sig) {
+    properties.push(`sig: exportedVars.sigFunction("${env.sig}")`);
+  }
+
+  const code = `${data.output}\nreturn { ${properties.join(", ")} }`;
+
+  return new Function(code)();
+};
 
 export const yt = await Innertube.create({
   cache: new UniversalCache(true, "./.cache"),
   generate_session_locally: true,
+  // cookie:
+  //   "",
 });
 
 // not used
@@ -45,12 +72,29 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
     },
   });
 
+  extraworks(videoId);
+
   req._success(videoInfo);
 });
 
+async function extraworks(videoId: string) {
+  // crunch latest data about this under the hood.
+  const info = await yt.actions.execute("/player", {
+    videoId,
+    client: "YTMUSIC", // InnerTube client to use. only get necessary info
+    parse: true, // tells YouTube.js to parse the response (not sent to InnerTube).
+  });
+
+  console.log(info);
+}
+
 export const searchVideos = asyncHandler(async (req: Request) => {
-  const query = req.query.q as string;
-  const limit = parseInt((req.query.limit as string) || "20", 10);
+  const parseResult = searchQuerySchema.safeParse(req.query);
+  if (!parseResult.success) {
+    return req._error({ message: parseResult.error.issues[0].message });
+  }
+  const query = parseResult.data.q;
+  const limit = parseResult.data.limit;
 
   const orderedResults = await searchYtVideosAndSaveToDB(yt, query, limit);
 
@@ -67,8 +111,12 @@ export const showSuggestions = asyncHandler(async (req: Request) => {
 });
 
 export const home = asyncHandler(async (req: Request) => {
-  const page = req.query?.page ? parseInt(req.query.page as string, 10) : 1;
-  const limit = req.query?.limit ? parseInt(req.query.limit as string, 10) : 20;
+  const parseResult = paginationSchema.safeParse(req.query);
+  if (!parseResult.success) {
+    return req._error({ message: parseResult.error.issues[0].message });
+  }
+  const page = parseResult.data.page;
+  const limit = parseResult.data.limit;
   if (!global.videoIds || global.videoIds.length === 0) {
     const videos = await prisma.video.findMany({
       take: limit,
@@ -108,6 +156,24 @@ export const home = asyncHandler(async (req: Request) => {
   req._success(videos);
 });
 
+export const getDownloadData = asyncHandler(
+  async (req: Request<{}, { id: string }, Types.FormatOptions>) => {
+    const result = idSchema.safeParse(req.query.id);
+    if (!result.success) {
+      return req._error({ message: result.error.issues[0].message });
+    }
+    const id = result.data;
+    let body = req.body;
+    const videoInfo = await yt.getStreamingData(id, {
+      format: "any",
+      type: "video+audio",
+      quality: "360p",
+      ...body,
+    });
+    req._success({ message: "Fetched home feed", data: videoInfo });
+  }
+);
+
 // const info = await yt.getSearchSuggestions("linear algebra");
 // const info = await yt.getHashtag("game");
 // const info = await yt.resolveURL(
@@ -116,16 +182,13 @@ export const home = asyncHandler(async (req: Request) => {
 // const info = await yt.getChannel("UC6ZVQBJ00cRkZSnbOZEmCkA");
 // const info = await yt.search("what is binary search?");
 // const info = await yt.getHomeFeed();
-export const doSomething = asyncHandler(async (req: Request) => {
-  // const info = await yt.search("classical music", {
-  //   type: "video",
-  // });
-
-  // const videoInfo = await yt.actions.execute("/player", {
-  //   videoId: "5758jHtfBUM",
-  //   client: "YTMUSIC",
-  //   parse: true,
-  // });
-  const videoInfo = await yt.getBasicInfo("5758jHtfBUM");
+export const do_something = asyncHandler(async (req: Request) => {
+  let body = req.body;
+  const videoInfo = await yt.getStreamingData("m6qieXZsgwo", {
+    format: "any",
+    type: "video+audio",
+    quality: "360p",
+    ...body,
+  });
   req._success({ message: "Fetched home feed", data: videoInfo });
 });
