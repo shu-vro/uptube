@@ -98,7 +98,6 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
       },
     },
   });
-  // todo: fix zero views.
 
   updateVideo(videoInfo as Video);
 
@@ -220,22 +219,9 @@ export const getDownloadData = asyncHandler(
 // const info = await yt.search("what is binary search?");
 // const info = await yt.getHomeFeed();
 export const do_something = asyncHandler(async (req: Request) => {
-  const videoId = sanitizeYtUrl(req.query.id as string);
-  if (!videoId) {
-    return req._error("Invalid video ID");
-  }
-  const videoInfo = await prisma.video.findFirst({
-    where: {
-      id: videoId,
-    },
-    include: {
-      creator: {
-        include: {
-          avatars: true,
-        },
-      },
-      thumbnails: true,
-    },
+  const videoInfo = await yt.getInfo("m6qieXZsgwo", {});
+  await yt.getStreamingData("m6qieXZsgwo", {
+    quality: "",
   });
 
   req._success(videoInfo);

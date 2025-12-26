@@ -16,7 +16,7 @@ export default function Header() {
           style={IMAGE_STYLE}
         /> */}
         <Logo width={32} height={32} color={THEME[colorScheme ?? 'light'].foreground} />
-        <Text variant="h3">Header</Text>
+        <Text variant="h3">Uptube</Text>
       </View>
       <View>
         <ThemeToggle />

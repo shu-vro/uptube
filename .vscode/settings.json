@@ -5,11 +5,11 @@
       "ssh": "Disabled",
       "previewLimit": 50,
       "server": "localhost",
+      "port": 5432,
       "driver": "PostgreSQL",
-      "database": "prisma",
-      "username": "postgres",
       "name": "local",
-      "connectString": "postgresql://postgres:postgres@localhost:5432/prisma?schema=public"
+      "database": "uptube",
+      "username": "postgres"
     }
   ]
 }

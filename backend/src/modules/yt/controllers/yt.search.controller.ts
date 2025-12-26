@@ -9,7 +9,11 @@ import { yt } from "./yt.controller";
 import _ from "lodash";
 import { XMLParser } from "fast-xml-parser";
 
-const parser = new XMLParser();
+const parser = new XMLParser({
+  ignoreAttributes: false,
+  allowBooleanAttributes: true,
+  attributeNamePrefix: "$_",
+});
 /**
  * ## Explanation of how this algo works:
  * first, it uses youtubei.js to search for videos matching the query, videos only
@@ -221,7 +225,7 @@ export async function searchYtVideosAndSaveToDB(
 export async function updateVideo(videoInfo: Video) {
   if (
     differenceInDays(
-      videoInfo?.createdAt.toString() || Date.now().toString(),
+      videoInfo?.last_manual_fetch.toString() || Date.now().toString(),
       Date.now().toString()
     ) > 7 ||
     Math.abs(videoInfo.updatedAt.getTime() - videoInfo.createdAt.getTime()) <
@@ -251,7 +255,8 @@ export async function updateVideo(videoInfo: Video) {
       info.player_overlays?.end_screen?.results
         .as(YTNodes.EndScreenVideo)
         ?.filter((v) => v.is(YTNodes.EndScreenVideo))
-        .map((v) => v.as(YTNodes.EndScreenVideo)) || [];
+        .map((v) => v.as(YTNodes.EndScreenVideo))
+        .splice(0, 6) || [];
 
     try {
       await prisma.video.update({
@@ -267,6 +272,16 @@ export async function updateVideo(videoInfo: Video) {
           duration: Number(info.basic_info.duration) || 0,
           like_count: Number(info.basic_info.like_count) || 0,
           keywords: info.basic_info.keywords || [],
+          last_manual_fetch: new Date(),
+          available_qualities: info.streaming_data
+            ? (Array.from(
+                new Set(
+                  info.streaming_data.adaptive_formats.map(
+                    (e) => e.quality_label
+                  )
+                )
+              ).filter((e) => !!e) as string[]).concat(["best", "bestefficiency"])
+            : [],
           category: info.basic_info.category
             ? String(info.basic_info.category)
             : null,
@@ -325,6 +340,10 @@ export async function updateVideo(videoInfo: Video) {
                   update: {
                     title: video.title.toString(),
                     duration: video.duration.seconds,
+                    view_count:
+                      parseViewCount(
+                        video.short_view_count.text?.toString() || "0"
+                      ) || 0,
                     thumbnails: {
                       upsert: _.uniqBy(
                         video.thumbnails.map((thumbnail) => ({
@@ -362,6 +381,10 @@ export async function updateVideo(videoInfo: Video) {
                       id: video.id,
                       title: video.title.toString(),
                       duration: video.duration.seconds,
+                      view_count:
+                        parseViewCount(
+                          video.short_view_count.text?.toString() || "0"
+                        ) || 0,
                       thumbnails: {
                         create: _.uniqBy(
                           video.thumbnails.map((thumbnail) => ({

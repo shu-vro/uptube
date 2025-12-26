@@ -1,26 +1,30 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Video, { ReactVideoProps, VideoRef, OnProgressData, OnLoadData } from 'react-native-video';
 import {
   View,
-  Text,
   StyleSheet,
   Dimensions,
   ActivityIndicator,
   TouchableOpacity,
   BackHandler,
+  TextInput,
 } from 'react-native';
+import { Text } from './text';
 import {
   Play,
   Pause,
   RotateCcw,
-  RotateCw,
   Maximize,
   Minimize,
   Volume2,
   VolumeX,
   PictureInPicture2,
+  Settings,
+  Settings2,
+  ChevronRight,
+  Gauge,
+  Captions,
 } from 'lucide-react-native';
-import { Video as VideoType } from '@/types/prisma';
 import Slider from '@react-native-community/slider';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -28,15 +32,17 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSequence,
-  withSpring,
-  runOnJS,
-  FadeIn,
-  FadeOut,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import { runOnJS } from 'react-native-worklets';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { VolumeManager } from 'react-native-volume-manager';
 
 import { MaterialIcons } from '@react-native-vector-icons/material-icons';
+import { Button } from './button';
+import Sheet from './sheet';
+import { THEME } from '@/lib/theme';
+import { useColorScheme } from 'nativewind';
+import { Switch } from './switch';
 
 type Props = {
   src: string;
@@ -70,14 +76,28 @@ export default function VideoPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [rate, setRate] = useState(1.0);
-  const [volume, setVolume] = useState(1.0);
+  const [systemVolume, setSystemVolume] = useState(1.0);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [isBuffering, setIsBuffering] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [openSettings, setOpenSettings] = useState(false);
+  const [openSettings2, setOpenSettings2] = useState(false);
+  const [openSpeedSheet, setOpenSpeedSheet] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [loop, setLoop] = useState(false);
+  const [ended, setEnded] = useState(false);
+  const [speedInput, setSpeedInput] = useState('1.0');
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const rateInitialized = useRef(false);
+  const longPressActive = useRef(false);
+  useEffect(() => {
+    setSpeedInput(rate.toFixed(2));
+  }, [rate]);
 
   const [videoSize, setVideoSize] = useState({ width: 0, height: 0 });
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
+  const { colorScheme } = useColorScheme();
 
   // ... existing animation values ...
   const controlsOpacity = useSharedValue(1);
@@ -85,6 +105,17 @@ export default function VideoPlayer({
   const forwardOpacity = useSharedValue(0);
   const rewindOpacity = useSharedValue(0);
   const speedMessageOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (!rateInitialized.current) {
+      rateInitialized.current = true;
+      return;
+    }
+    speedMessageOpacity.value = withSequence(
+      withTiming(1, { duration: 120 }),
+      withTiming(0, { duration: 400 })
+    );
+  }, [rate, speedMessageOpacity]);
 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -148,12 +179,14 @@ export default function VideoPlayer({
   // }, [showControls]);
 
   const handleProgress = (data: OnProgressData) => {
+    if (isScrubbing) return;
     setCurrentTime(data.currentTime);
   };
 
   const handleLoad = (data: OnLoadData) => {
     setDuration(data.duration);
     setVideoSize(data.naturalSize);
+    setEnded(false);
     showControls();
   };
 
@@ -163,10 +196,31 @@ export default function VideoPlayer({
     showControls();
   };
 
+  const handleSliderChange = (value: number) => {
+    setCurrentTime(value);
+    showControls();
+  };
+
+  const handleSlidingStart = () => {
+    setIsScrubbing(true);
+    showControls();
+  };
+
+  const handleSlidingComplete = (value: number) => {
+    setIsScrubbing(false);
+    handleSeek(value);
+  };
+
   const togglePlayPause = () => {
+    if (ended) {
+      videoRef.current?.seek(0);
+      setEnded(false);
+      setPaused(false);
+      showControls();
+      return;
+    }
     const willBePaused = !paused;
     setPaused(willBePaused);
-
     hideControls();
   };
 
@@ -250,15 +304,54 @@ export default function VideoPlayer({
   const longPress = Gesture.LongPress()
     .minDuration(500)
     .onStart(() => {
+      longPressActive.current = true;
       runOnJS(setRate)(2.0);
-      speedMessageOpacity.value = withTiming(1, { duration: 200 });
     })
     .onFinalize(() => {
+      if (!longPressActive.current) return;
+      longPressActive.current = false;
       runOnJS(setRate)(1.0);
-      speedMessageOpacity.value = withTiming(0, { duration: 200 });
     });
 
-  const [previousStableVolume, setPreviousStableVolume] = useState(1.0);
+  const volumeBase = useSharedValue(1.0);
+
+  useEffect(() => {
+    if (!VolumeManager || typeof VolumeManager.getVolume !== 'function') {
+      console.log('VOLUME NOT WORKING');
+      return;
+    }
+
+    VolumeManager.getVolume()
+      .then(({ volume }) => {
+        console.log('volume.......', volume);
+        setSystemVolume(volume);
+        volumeBase.value = volume;
+      })
+      .catch(() => {
+        /* noop */
+      });
+
+    const subscription = VolumeManager.addVolumeListener(({ volume }) => {
+      setSystemVolume(volume);
+      volumeBase.value = volume;
+    });
+
+    return () => subscription.remove();
+  }, [volumeBase]);
+
+  const applySystemVolume = useCallback(
+    (value: number) => {
+      const next = Math.max(0, Math.min(1, value));
+      if (VolumeManager && typeof VolumeManager.setVolume === 'function') {
+        VolumeManager.setVolume(next, { showUI: false, type: 'music' }).catch(() => {
+          /* noop */
+        });
+      }
+      setSystemVolume(next);
+      volumeBase.value = next;
+    },
+    [volumeBase]
+  );
 
   const panVolume = Gesture.Pan()
     .onStart((e) => {
@@ -269,18 +362,16 @@ export default function VideoPlayer({
     .onUpdate((e) => {
       if (e.x > SCREEN_WIDTH * 0.7) {
         const newVolume =
-          previousStableVolume - e.translationY / (((videoSize?.height || 300) / 3) * 2);
+          volumeBase.value - e.translationY / (((videoSize?.height || 300) / 3) * 2);
         const clampedVolume = Math.max(0, Math.min(1, newVolume));
-        runOnJS(setVolume)(clampedVolume);
+        runOnJS(applySystemVolume)(clampedVolume);
       }
     })
     .onFinalize((e) => {
-      const newVolume =
-        previousStableVolume - e.translationY / (((videoSize?.height || 300) / 3) * 2);
+      const newVolume = volumeBase.value - e.translationY / (((videoSize?.height || 300) / 3) * 2);
       const clampedVolume = Math.max(0, Math.min(1, newVolume));
       volumeOpacity.value = withTiming(0, { duration: 500 });
-      runOnJS(setVolume)(clampedVolume);
-      runOnJS(setPreviousStableVolume)(clampedVolume);
+      runOnJS(applySystemVolume)(clampedVolume);
     });
 
   const taps = Gesture.Exclusive(doubleTap, singleTap);
@@ -327,15 +418,21 @@ export default function VideoPlayer({
                 resizeMode="contain"
                 paused={paused}
                 rate={rate}
-                volume={volume}
+                volume={1}
+                muted={muted}
+                repeat={loop}
                 onProgress={handleProgress}
                 onLoad={handleLoad}
+                onEnd={() => {
+                  setEnded(true);
+                  setPaused(true);
+                  showControls();
+                }}
                 onBuffer={({ isBuffering }) => setIsBuffering(isBuffering)}
                 onPictureInPictureStatusChanged={(e) => {
                   onPipChange?.(e.isActive);
                 }}
                 poster={poster}
-                posterResizeMode="cover"
                 {...rest}
               />
             </Animated.View>
@@ -351,18 +448,18 @@ export default function VideoPlayer({
 
             <Animated.View style={[styles.centerFeedback, speedMessageStyle]}>
               <Text className="rounded-full bg-black/50 px-4 py-2 text-lg font-bold text-white">
-                2x Speed
+                {rate.toFixed(2)}x Speed
               </Text>
             </Animated.View>
 
             <Animated.View style={[styles.volumeIndicator, volumeStyle]}>
-              {volume === 0 ? (
+              {systemVolume === 0 ? (
                 <VolumeX size={24} color="white" />
               ) : (
                 <Volume2 size={24} color="white" />
               )}
               <View className="ml-2 h-20 w-1 justify-end overflow-hidden rounded-full bg-gray-600">
-                <View style={{ height: `${volume * 100}%` }} className="w-full bg-white" />
+                <View style={{ height: `${systemVolume * 100}%` }} className="w-full bg-white" />
               </View>
             </Animated.View>
           </View>
@@ -376,6 +473,20 @@ export default function VideoPlayer({
           pointerEvents={controlsVisible ? 'box-none' : 'none'}>
           {isBuffering ? (
             <ActivityIndicator size="large" color="white" />
+          ) : ended ? (
+            <TouchableOpacity
+              className="rounded-full bg-white/20 px-4 py-3"
+              onPress={() => {
+                videoRef.current?.seek(0);
+                setEnded(false);
+                setPaused(false);
+                showControls();
+              }}>
+              <View className="flex-row items-center gap-2">
+                <RotateCcw size={28} color="white" />
+                <Text className="text-white">Replay</Text>
+              </View>
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity className="rounded-full bg-black/40 p-4" onPress={togglePlayPause}>
               {paused ? (
@@ -388,35 +499,198 @@ export default function VideoPlayer({
         </View>
       </Animated.View>
       <Animated.View
-        className="absolute bottom-0 w-full bg-black/60 px-4 py-2 pb-0"
+        className="absolute bottom-0 w-full bg-black/60 py-2 pb-0"
         style={[controlsStyle]}>
-        <View className="flex flex-row items-center justify-between">
-          <Text className="w-12 font-medium text-white">{formatTime(currentTime)}</Text>
+        <View className="flex flex-col items-center justify-between">
           <Slider
-            style={{ flex: 1 }}
+            style={{ flex: 1, width: '100%' }}
             minimumValue={0}
             maximumValue={duration}
             value={currentTime}
-            onSlidingComplete={handleSeek}
-            onValueChange={handleSeek}
+            onSlidingStart={handleSlidingStart}
+            onSlidingComplete={handleSlidingComplete}
+            onValueChange={handleSliderChange}
             minimumTrackTintColor="#FFFFFF"
             maximumTrackTintColor="#FFFFFF50"
             thumbTintColor="#FFFFFF"
           />
-          <Text className="w-12 font-medium text-white">{formatTime(duration)}</Text>
-          <TouchableOpacity onPress={enterPip} className="ml-2">
-            <PictureInPicture2 size={20} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={toggleFullscreen} className="ml-2">
-            {isFullscreen ? (
-              <Minimize size={20} color="white" />
-            ) : (
-              <Maximize size={20} color="white" />
-            )}
-          </TouchableOpacity>
+          <View className="mt-2 w-full flex-row items-center justify-between px-4 pb-2">
+            <TouchableOpacity onPress={(e) => {}}>
+              <Text className="font-medium text-white">
+                {formatTime(currentTime)}/{formatTime(duration)}
+              </Text>
+            </TouchableOpacity>
+            <View className="flex-1 flex-row justify-end">
+              <TouchableOpacity
+                onPress={() => {
+                  setOpenSettings(true);
+                }}
+                className="ml-4">
+                <Settings size={20} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={enterPip} className="ml-4">
+                <PictureInPicture2 size={20} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={toggleFullscreen} className="ml-4">
+                {isFullscreen ? (
+                  <Minimize size={20} color="white" />
+                ) : (
+                  <Maximize size={20} color="white" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Animated.View>
+      <Sheet open={openSettings} onClose={() => setOpenSettings(false)}>
+        <Text variant="h3">Settings</Text>
+        <SettingsButton Icon={Settings2} label="Quality" type="option" selectedText={'1080p'} />
+        <SettingsButton
+          Icon={Gauge}
+          label="Playback Speed"
+          type="option"
+          selectedText={`${rate.toFixed(2)}x`}
+          onPress={() => setOpenSpeedSheet(true)}
+        />
+        <SettingsButton Icon={Captions} label="Captions" type="option" />
+        <SettingsButton
+          Icon={Settings}
+          label="Additional Settings"
+          type="option"
+          selectedText={'\u00A0'}
+          onPress={() => setOpenSettings2(true)}
+        />
+      </Sheet>
+      <Sheet open={openSettings2} onClose={() => setOpenSettings2(false)}>
+        <Text variant="h3">Settings</Text>
+        <SettingsButton
+          Icon={Volume2}
+          label="Mute"
+          type="switch"
+          defaultToggle={muted}
+          onToggle={(val) => setMuted(val)}
+        />
+        <SettingsButton
+          Icon={Gauge}
+          label="Loop Video"
+          type="switch"
+          defaultToggle={loop}
+          onToggle={(val) => setLoop(val)}
+        />
+      </Sheet>
+      <Sheet open={openSpeedSheet} onClose={() => setOpenSpeedSheet(false)}>
+        <Text variant="h3">Playback Speed</Text>
+        <View className="mt-4">
+          <Text className="text-foreground">Speed (0.25x - 4x)</Text>
+          <Slider
+            style={{ width: '100%' }}
+            minimumValue={0.25}
+            maximumValue={4}
+            step={0.05}
+            value={rate}
+            onValueChange={(v) => {
+              const clamped = Math.min(4, Math.max(0.25, v));
+              const next = Number(clamped.toFixed(2));
+              setRate(next);
+              setSpeedInput(next.toFixed(2));
+            }}
+            minimumTrackTintColor="#FFFFFF"
+            maximumTrackTintColor="#FFFFFF50"
+            thumbTintColor="#FFFFFF"
+          />
+          <View className="mt-3 flex-row items-center justify-between">
+            <TouchableOpacity
+              onPress={() => {
+                setRate(1);
+                setSpeedInput('1.00');
+              }}>
+              <Text className="text-white">Reset 1.0x</Text>
+            </TouchableOpacity>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-white">Manual</Text>
+              <TextInput
+                value={speedInput}
+                onChangeText={(txt) => {
+                  setSpeedInput(txt);
+                }}
+                onEndEditing={() => {
+                  const parsed = parseFloat(speedInput);
+                  if (!isNaN(parsed)) {
+                    const clamped = Math.min(4, Math.max(0.25, parsed));
+                    setRate(clamped);
+                    setSpeedInput(clamped.toFixed(2));
+                  } else {
+                    setSpeedInput(rate.toFixed(2));
+                  }
+                }}
+                keyboardType="decimal-pad"
+                className="w-20 rounded bg-white/10 px-2 py-1 text-white"
+              />
+            </View>
+          </View>
+        </View>
+      </Sheet>
     </View>
+  );
+}
+
+type SettingButtonType = {
+  Icon: React.ComponentType<any>;
+  label: string;
+  selectedText?: string;
+  onPress?: () => void;
+} & (
+  | {
+      type?: 'option';
+      selectedText?: string;
+    }
+  | {
+      type: 'switch';
+      defaultToggle?: boolean;
+      onToggle?: (checked: boolean) => void;
+    }
+);
+
+function SettingsButton({
+  Icon,
+  label,
+  selectedText,
+  type = 'option',
+  onPress = () => {},
+  ...rest
+}: SettingButtonType) {
+  const { colorScheme } = useColorScheme();
+  const defaultToggle = (rest as { defaultToggle?: boolean }).defaultToggle ?? false;
+  const onToggle = (rest as { onToggle?: (checked: boolean) => void }).onToggle;
+  return (
+    <TouchableOpacity
+      className="flex-1 flex-row justify-between py-3"
+      onPress={type !== 'switch' ? onPress : undefined}>
+      <View className="flex-row items-center">
+        <Icon color={THEME[colorScheme!].foreground} />
+        <Text className="ml-4 text-lg font-medium text-foreground">{label}</Text>
+      </View>
+      {type === 'option' && selectedText && (
+        <View className="flex-row items-center">
+          <Text>{selectedText}</Text>
+          <ChevronRight size={16} color={THEME[colorScheme!].foreground} />
+        </View>
+      )}
+      {type === 'switch' && (
+        <View className="flex-row items-center">
+          <Switch
+            checked={defaultToggle}
+            onCheckedChange={(value) => {
+              if (onToggle) {
+                onToggle(value);
+              } else {
+                onPress();
+              }
+            }}
+          />
+        </View>
+      )}
+    </TouchableOpacity>
   );
 }
 

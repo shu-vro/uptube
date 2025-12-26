@@ -13,9 +13,8 @@ import { useColorScheme } from 'nativewind';
 import { THEME } from '@/lib/theme';
 import VideoPlayer from '@/components/ui/video-player';
 import { miniNumber, distanceFromToday } from '@/lib/utils/number-format';
-import { ThumbsUp, Share2, ListPlus, ChevronDown, ChevronUp } from 'lucide-react-native';
-import { SearchResultVideo, VideoCardGrid } from '@/components/specific/Search';
-import Gradient from '@/components/specific/Gradient';
+import { ThumbsUp, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { VideoCardGrid } from '@/components/specific/Search';
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,7 +47,7 @@ export default function VideoDetailScreen() {
   );
 
   const video: Video | undefined = data;
-  console.log(JSON.stringify(video?.nextEdges, null, 2));
+  console.log(JSON.stringify(downloadData, null, 2));
 
   if (isLoading) {
     return (
@@ -80,7 +79,6 @@ export default function VideoDetailScreen() {
     <SafeAreaView
       className="flex-1 bg-background"
       edges={isPlayerFullscreen || isPip ? [] : ['top']}>
-      <Gradient />
       {!isPlayerFullscreen && !isPip && (
         <View className="flex-row items-center border-b border-border px-4 py-3">
           <Pressable

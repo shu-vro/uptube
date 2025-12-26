@@ -27,12 +27,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.shirshen.uptube',
+    icon: './assets/expo-icons/splash-icon.png',
   },
   android: {
     package: 'com.shirshen.uptube',
     edgeToEdgeEnabled: true,
     adaptiveIcon: {
-      foregroundImage: './assets/icons/icons-folder/iTunesArtwork@2x.png',
+      foregroundImage: './assets/expo-icons/splash-icon.png',
       backgroundColor: '#000000',
     },
   },
@@ -60,6 +61,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           backgroundColor: '#000000',
         },
         imageWidth: 200,
+      },
+    ],
+    [
+      'expo-build-properties',
+      {
+        android: {
+          compileSdkVersion: 35,
+          targetSdkVersion: 35,
+          buildToolsVersion: '34.0.0',
+        },
+        ios: {
+          deploymentTarget: '15.2',
+        },
       },
     ],
   ],

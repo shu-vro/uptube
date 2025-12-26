@@ -79,6 +79,7 @@ const buttonTextVariants = cva(
         sm: '',
         lg: '',
         icon: '',
+        'light-icon': '',
       },
     },
     defaultVariants: {

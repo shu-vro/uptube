@@ -12,6 +12,7 @@
   "dependencies": {
     "@expo-google-fonts/outfit": "^0.4.3",
     "@expo/metro-runtime": "~6.1.2",
+    "@gorhom/bottom-sheet": "^5.2.8",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/blur": "^4.4.1",
     "@react-native-community/slider": "^5.1.1",
@@ -44,6 +45,7 @@
     "date-fns": "^4.1.0",
     "expo": "^54.0.10",
     "expo-blur": "~15.0.7",
+    "expo-build-properties": "~1.0.10",
     "expo-constants": "~18.0.9",
     "expo-crypto": "~15.0.7",
     "expo-dev-client": "~6.0.13",
@@ -70,6 +72,7 @@
     "react-native-svg": "15.12.1",
     "react-native-svg-transformer": "^1.5.1",
     "react-native-video": "^6.18.0",
+    "react-native-volume-manager": "^2.0.8",
     "react-native-web": "^0.21.0",
     "react-native-worklets": "0.5.1",
     "react-native-worklets-core": "^1.6.2",

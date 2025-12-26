@@ -26,20 +26,22 @@ model User {
 }
 
 model Video {
-  id                String    @id @default(cuid())
-  title             String
-  channel_id        String
-  short_description String?
-  duration          Int       @default(0)
-  view_count        Int       @default(0)
-  type              String    @default("video")
-  keywords          String[]  @default([])
-  like_count        Int       @default(0)
-  category          String?
-  captions          Caption[]
-  extra             Json?     @default("{}")
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                  String    @id @default(cuid())
+  title               String
+  channel_id          String
+  short_description   String?
+  duration            Int       @default(0)
+  view_count          Int       @default(0)
+  type                String    @default("video")
+  keywords            String[]  @default([])
+  like_count          Int       @default(0)
+  category            String?
+  captions            Caption[]
+  extra               Json?     @default("{}")
+  last_manual_fetch   DateTime  @default(now())
+  available_qualities String[]  @default([])
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   thumbnails Thumbnail[] @relation("VideoToThumbnails")
   creator    Creator     @relation(fields: [channel_id], references: [id])
@@ -55,12 +57,14 @@ model VideoNext {
   position  Int?
   extra     Json?    @default("{}")
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   from Video @relation("FromVideo", fields: [fromId], references: [id], onDelete: Cascade)
   to   Video @relation("ToVideo", fields: [toId], references: [id], onDelete: Cascade)
 
   @@id([fromId, toId])
   @@index([toId])
+  @@index([position])
 }
 
 model Caption {
@@ -86,6 +90,8 @@ model Thumbnail {
 
   video   Video?   @relation("VideoToThumbnails", fields: [video_id], references: [id], onDelete: Cascade)
   creator Creator? @relation(fields: [creator_id], references: [id], onDelete: Cascade)
+
+  @@index([width])
 }
 
 model Creator {
