@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, ScrollView, ActivityIndicator, Pressable, Image, FlatList } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -47,7 +47,15 @@ export default function VideoDetailScreen() {
   );
 
   const video: Video | undefined = data;
-  console.log(JSON.stringify(downloadData, null, 2));
+
+  useEffect(() => {
+    if (video?.available_qualities?.length) return;
+    const timeout = setTimeout(async () => {
+      const s = await mutate();
+    }, 3000);
+    return () => clearTimeout(timeout);
+  }, [video]);
+  console.log(JSON.stringify(video, null, 2));
 
   if (isLoading) {
     return (

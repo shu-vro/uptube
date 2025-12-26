@@ -316,14 +316,8 @@ export default function VideoPlayer({
   const volumeBase = useSharedValue(1.0);
 
   useEffect(() => {
-    if (!VolumeManager || typeof VolumeManager.getVolume !== 'function') {
-      console.log('VOLUME NOT WORKING');
-      return;
-    }
-
     VolumeManager.getVolume()
       .then(({ volume }) => {
-        console.log('volume.......', volume);
         setSystemVolume(volume);
         volumeBase.value = volume;
       })
@@ -342,11 +336,9 @@ export default function VideoPlayer({
   const applySystemVolume = useCallback(
     (value: number) => {
       const next = Math.max(0, Math.min(1, value));
-      if (VolumeManager && typeof VolumeManager.setVolume === 'function') {
-        VolumeManager.setVolume(next, { showUI: false, type: 'music' }).catch(() => {
-          /* noop */
-        });
-      }
+      VolumeManager.setVolume(next, { showUI: false, type: 'music' }).catch(() => {
+        /* noop */
+      });
       setSystemVolume(next);
       volumeBase.value = next;
     },

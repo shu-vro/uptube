@@ -33,6 +33,7 @@ export interface Video {
   updatedAt: Date | string;
   thumbnails?: Thumbnail[];
   creator?: Creator;
+  available_qualities: string[] | null;
   nextEdges?: VideoNext[];
   prevEdges?: VideoNext[];
 }
