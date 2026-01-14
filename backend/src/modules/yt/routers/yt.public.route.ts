@@ -321,6 +321,29 @@ router.get("/show-suggestions", showSuggestions);
  *         description: Server error
  */
 router.post("/download-data/:id", getDownloadData);
+/**
+ * @openapi
+ * /api/v1/public/yt/do-something:
+ *   get:
+ *     summary: Do something (example endpoint)
+ *     description: An example endpoint that performs a specific action.
+ *     responses:
+ *       200:
+ *         description: Successful response with data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   description: Result of the action performed
+ *       500:
+ *         description: Server error
+ */
 router.get("/do-something", do_something);
 
 export default router;

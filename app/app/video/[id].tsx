@@ -1,9 +1,19 @@
-import React, { useEffect } from 'react';
-import { View, ScrollView, ActivityIndicator, Pressable, Image, FlatList } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import {
+  View,
+  ScrollView,
+  ActivityIndicator,
+  Pressable,
+  Image,
+  FlatList,
+  Dimensions,
+  StatusBar,
+  Animated,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
-import { ArrowLeft } from 'lucide-react-native';
+import { AlignVerticalDistributeCenter, ArrowLeft, Flame } from 'lucide-react-native';
 import { useState, useCallback } from 'react';
 
 import { Text } from '@/components/ui/text';
@@ -11,10 +21,13 @@ import { get, post } from '@/lib/utils/fetch';
 import { Video } from '@/types/prisma';
 import { useColorScheme } from 'nativewind';
 import { THEME } from '@/lib/theme';
-import VideoPlayer from '@/components/ui/video-player';
+import VideoPlayer, { SettingsButton } from '@/components/ui/video-player';
 import { miniNumber, distanceFromToday } from '@/lib/utils/number-format';
 import { ThumbsUp, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { VideoCardGrid } from '@/components/specific/Search';
+import { TranscriptViewer } from '@/components/specific/TranscriptViewer';
+import Sheet from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,6 +36,10 @@ export default function VideoDetailScreen() {
   const colors = THEME[colorScheme ?? 'light'];
   const [isPlayerFullscreen, setIsPlayerFullscreen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [isTranscriptSheetOpen, setIsTranscriptSheetOpen] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const videoPlayerRef = useRef<{ seek: (time: number) => void } | null>(null);
 
   const [isPip, setIsPip] = useState(false);
 
@@ -34,16 +51,22 @@ export default function VideoDetailScreen() {
     setIsPlayerFullscreen(isFullscreen);
   }, []);
 
+  const handleCurrentTimeChange = useCallback((time: number) => {
+    setCurrentTime(time);
+  }, []);
+
+  const handleSeek = useCallback((time: number) => {
+    videoPlayerRef.current?.seek(time);
+  }, []);
+
+  const handleTranscriptToggle = useCallback(() => {
+    setIsTranscriptSheetOpen((prev) => !prev);
+  }, []);
+
   // Fetch video details
   const { data, error, isLoading, mutate } = useSWR(
     id ? `/public/yt/video?id=${id}` : null,
     (url: string) => get({ endpoint: url })
-  );
-
-  // fetch download url
-  const { data: downloadData } = useSWR(
-    id ? `/public/yt/download-data/${id}` : null,
-    (url: string) => post({ endpoint: url })
   );
 
   const video: Video | undefined = data;
@@ -55,7 +78,6 @@ export default function VideoDetailScreen() {
     }, 3000);
     return () => clearTimeout(timeout);
   }, [video]);
-  console.log(JSON.stringify(video, null, 2));
 
   if (isLoading) {
     return (
@@ -88,7 +110,12 @@ export default function VideoDetailScreen() {
       className="flex-1 bg-background"
       edges={isPlayerFullscreen || isPip ? [] : ['top']}>
       {!isPlayerFullscreen && !isPip && (
-        <View className="flex-row items-center border-b border-border px-4 py-3">
+        <View
+          className="flex-row items-center border-b border-border px-4 py-3"
+          onLayout={(event) => {
+            const { height } = event.nativeEvent.layout;
+            setHeaderHeight(height);
+          }}>
           <Pressable
             onPress={() => router.back()}
             className="mr-3 rounded-full p-2 active:bg-muted">
@@ -100,20 +127,20 @@ export default function VideoDetailScreen() {
         </View>
       )}
 
-      <View
-        className={
-          isPlayerFullscreen || isPip
-            ? 'h-full w-full flex-1 bg-black'
-            : 'aspect-video w-full bg-black'
-        }>
-        <VideoPlayer
-          poster={video.thumbnails?.[0]?.id}
-          src={downloadData?.data.url}
-          style={{ width: '100%', height: '100%' }}
-          onFullScreenChange={onFullScreenChange}
-          onPipChange={onPipChange}
-        />
-      </View>
+      <VideoComponentFull
+        isPlayerFullscreen={isPlayerFullscreen}
+        isPip={isPip}
+        video={video}
+        onFullScreenChange={onFullScreenChange}
+        onPipChange={onPipChange}
+        onCurrentTimeChange={handleCurrentTimeChange}
+        onSeek={handleSeek}
+        videoPlayerRef={videoPlayerRef}
+        isTranscriptSheetOpen={isTranscriptSheetOpen}
+        onTranscriptToggle={handleTranscriptToggle}
+        currentTime={currentTime}
+        headerHeight={headerHeight}
+      />
 
       {!isPlayerFullscreen && !isPip && (
         <FlatList
@@ -206,5 +233,164 @@ export default function VideoDetailScreen() {
         />
       )}
     </SafeAreaView>
+  );
+}
+
+type VideoComponentProps = {
+  isPlayerFullscreen: boolean;
+  isPip: boolean;
+  video: Video;
+  onFullScreenChange: (isFullscreen: boolean) => void;
+  onPipChange: (isActive: boolean) => void;
+  onCurrentTimeChange: (time: number) => void;
+  onSeek: (time: number) => void;
+  videoPlayerRef: React.RefObject<{ seek: (time: number) => void } | null>;
+  isTranscriptSheetOpen: boolean;
+  onTranscriptToggle: () => void;
+  currentTime: number;
+  headerHeight: number;
+};
+
+function VideoComponentFull({
+  isPlayerFullscreen,
+  isPip,
+  video,
+  onFullScreenChange,
+  onPipChange,
+  onCurrentTimeChange,
+  onSeek,
+  videoPlayerRef,
+  isTranscriptSheetOpen,
+  onTranscriptToggle,
+  currentTime,
+  headerHeight,
+}: VideoComponentProps) {
+  const [openQualitySheet, setOpenQualitySheet] = useState(false);
+  const [selectedQuality, setSelectedQuality] = useState('bestefficiency');
+  const [videoHeight, setVideoHeight] = useState(0);
+  const slideAnim = useRef(new Animated.Value(1000)).current;
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const videoRef = useRef<any>(null);
+  const { colorScheme } = useColorScheme();
+  const colors = THEME[colorScheme ?? 'light'];
+
+  // Expose seek method to parent
+  useEffect(() => {
+    videoPlayerRef.current = {
+      seek: (time: number) => {
+        videoRef.current?.seek(time);
+      },
+    };
+  }, [videoPlayerRef]);
+
+  // fetch download url
+  const { data: downloadData, mutate } = useSWR(
+    id ? `/public/yt/download-data/${id}` : null,
+    (url: string) => post({ endpoint: url, params: { quality: selectedQuality } })
+  );
+
+  useEffect(() => {
+    mutate();
+  }, [selectedQuality]);
+
+  // Animate transcript sheet
+  useEffect(() => {
+    if (isTranscriptSheetOpen) {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 65,
+        friction: 11,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: 1000,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isTranscriptSheetOpen, slideAnim]);
+
+  // console.log(JSON.stringify(downloadData?.data.url, null, 2), 'lasdkf');
+  return (
+    <>
+      <View
+        className={
+          isPlayerFullscreen || isPip
+            ? 'h-full w-full flex-1 bg-black'
+            : 'aspect-video w-full bg-black'
+        }
+        onLayout={(event) => {
+          if (!isPlayerFullscreen && !isPip) {
+            const { height } = event.nativeEvent.layout;
+            setVideoHeight(height);
+          }
+        }}>
+        <VideoPlayer
+          ref={videoRef}
+          poster={video.thumbnails?.[0]?.id}
+          src={downloadData?.data.url}
+          style={{ width: '100%', height: '100%' }}
+          onFullScreenChange={onFullScreenChange}
+          onPipChange={onPipChange}
+          onCurrentTimeChange={onCurrentTimeChange}
+          setOpenQualitySheet={setOpenQualitySheet}
+          onTranscriptToggle={onTranscriptToggle}
+        />
+      </View>
+      <Sheet open={openQualitySheet} onClose={() => setOpenQualitySheet(false)}>
+        <Text variant="h3">Playback Speed</Text>
+        {video.available_qualities?.map((q) => (
+          <SettingsButton
+            key={q}
+            Icon={Flame}
+            label={q}
+            selectedText=" "
+            onPress={() => {
+              setSelectedQuality(q);
+            }}></SettingsButton>
+        ))}
+      </Sheet>
+      {isTranscriptSheetOpen && !isPlayerFullscreen && !isPip && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height:
+              Dimensions.get('window').height -
+              (StatusBar.currentHeight || 0) -
+              headerHeight -
+              videoHeight,
+            transform: [{ translateY: slideAnim }],
+            backgroundColor: colors.border,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingTop: 16,
+            paddingHorizontal: 16,
+            paddingBottom: 32,
+            zIndex: 1000,
+          }}
+          pointerEvents="auto">
+          <View className="mb-3 flex-row items-center justify-between">
+            <Text variant="h3" className="font-bold">
+              Transcript
+            </Text>
+            {/* <Pressable onPress={onTranscriptToggle} className="rounded-full bg-muted px-3 py-2">
+              <Text className="text-sm font-medium">Close</Text>
+            </Pressable> */}
+            <Button size={'sm'} onPress={onTranscriptToggle}>
+              <Text className="font-bold">Close</Text>
+            </Button>
+          </View>
+          <TranscriptViewer
+            captions={(video.captions as any) || []}
+            currentTime={currentTime}
+            onSeek={onSeek}
+          />
+        </Animated.View>
+      )}
+    </>
   );
 }

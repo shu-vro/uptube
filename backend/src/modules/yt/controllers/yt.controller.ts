@@ -2,7 +2,7 @@ import logger from "config/logger/pino.logger";
 import { Request } from "express";
 import { asyncHandler } from "utils/async-handler";
 import { Innertube, UniversalCache, YTNodes } from "youtubei.js";
-import { Platform, Types } from "youtubei.js/web";
+import { Platform, Types, Utils, YT, Constants } from "youtubei.js/web";
 import { sanitizeYtUrl } from "utils/yt";
 import { searchYtVideosAndSaveToDB, updateVideo } from "./yt.search.controller";
 import _ from "lodash";
@@ -11,7 +11,6 @@ import {
   paginationSchema,
   searchQuerySchema,
 } from "../validators/yt.validator";
-import { XMLParser } from "fast-xml-parser";
 import { Video } from "generated/prisma/client";
 
 Platform.shim.eval = async (
@@ -36,8 +35,7 @@ Platform.shim.eval = async (
 export const yt = await Innertube.create({
   cache: new UniversalCache(true, "./.cache"),
   generate_session_locally: true,
-  // cookie:
-  //   "",
+  // cookie: ``,
 });
 
 // not used
@@ -76,6 +74,7 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
         },
         take: 2,
       },
+      captions: true,
       nextEdges: {
         orderBy: {
           position: "asc",
@@ -133,6 +132,7 @@ export const home = asyncHandler(async (req: Request) => {
   }
   const page = parseResult.data.page;
   const limit = parseResult.data.limit;
+
   if (!global.videoIds || global.videoIds.length === 0) {
     const videos = await prisma.video.findMany({
       take: limit,
@@ -200,15 +200,20 @@ export const getDownloadData = asyncHandler(
     }
     const id = result.data;
     let body = req.body;
+    const quality = (body.quality as string) || "bestefficiency";
     const videoInfo = await yt.getStreamingData(id, {
       format: "any",
       type: "video+audio",
-      quality: "360p",
+      quality,
       ...body,
     });
     req._success({ message: "Fetched home feed", data: videoInfo });
   }
 );
+
+import { SabrStream } from "googlevideo/sabr-stream";
+import { buildSabrFormat, EnabledTrackTypes } from "googlevideo/utils";
+import type { SabrFormat } from "googlevideo/shared-types";
 
 // const info = await yt.getSearchSuggestions("linear algebra");
 // const info = await yt.getHashtag("game");
@@ -218,11 +223,45 @@ export const getDownloadData = asyncHandler(
 // const info = await yt.getChannel("UC6ZVQBJ00cRkZSnbOZEmCkA");
 // const info = await yt.search("what is binary search?");
 // const info = await yt.getHomeFeed();
+
 export const do_something = asyncHandler(async (req: Request) => {
-  const videoInfo = await yt.getInfo("m6qieXZsgwo", {});
-  await yt.getStreamingData("m6qieXZsgwo", {
-    quality: "",
+  // const videoInfo = await yt.getInfo("m6qieXZsgwo", {});
+  // Bun.write(Bun.file("yt-video-info.json"), JSON.stringify(videoInfo, null, 2));
+  // const downloadData = await yt.getStreamingData("m6qieXZsgwo", {
+  //   // quality: "best",
+  //   itag: 303,
+  // });
+
+  const videoId = sanitizeYtUrl("m6qieXZsgwo");
+  if (!videoId) {
+    return req._error("Invalid video ID");
+  }
+
+  // const videoInfo = await yt.actions.execute("/player", {
+  //   videoId,
+  //   contentCheckOk: true,
+  //   racyCheckOk: true,
+  //   playbackContext: {
+  //     adPlaybackContext: {
+  //       pyv: true,
+  //     },
+  //     contentPlaybackContext: {
+  //       signatureTimestamp: yt.session.player?.signature_timestamp,
+  //     },
+  //   },
+  // });
+
+  const videoInfo = await yt.getStreamingData(videoId, {
+    format: "any",
+    type: "video+audio",
+    quality: "bestefficiency",
   });
+
+  Bun.write(Bun.file("yt-video-info.json"), JSON.stringify(videoInfo, null, 2));
+
+  // const dld = await yt.download("m6qieXZsgwo", {
+  //   // quality: "hd720",
+  // });
 
   req._success(videoInfo);
 });

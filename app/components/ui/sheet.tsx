@@ -14,14 +14,20 @@ export default function Sheet({
   open,
   onClose,
   children,
+  enableBackdropDismiss = true,
+  backdropOpacity,
+  snapPoints,
 }: {
   open: boolean;
   onClose: () => void;
   children?: React.ReactNode;
+  enableBackdropDismiss?: boolean;
+  backdropOpacity?: number;
+  snapPoints?: string[];
 }) {
   const { colorScheme } = useColorScheme();
   const colors = THEME[colorScheme ?? 'light'];
-  const snapPoints = useMemo(() => ['50%', '100%'], []);
+  const _snapPoints = useMemo(() => snapPoints ?? ['50%', '100%'], [snapPoints]);
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
 
@@ -64,18 +70,18 @@ export default function Sheet({
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
         {...props}
-        pressBehavior="close"
+        pressBehavior={enableBackdropDismiss ? 'close' : 'none'}
         appearsOnIndex={0}
         disappearsOnIndex={-1}
-        opacity={colorScheme === 'dark' ? 0.75 : 0.35}
+        opacity={backdropOpacity ?? (colorScheme === 'dark' ? 0.75 : 0.35)}
       />
     ),
-    [colorScheme]
+    [colorScheme, enableBackdropDismiss, backdropOpacity]
   );
 
   return (
     <BottomSheetModal
-      snapPoints={snapPoints}
+      snapPoints={_snapPoints}
       index={0}
       ref={bottomSheetModalRef}
       onChange={handleSheetChanges}
@@ -83,7 +89,7 @@ export default function Sheet({
       enableDismissOnClose
       enablePanDownToClose
       backdropComponent={renderBackdrop}
-      handleIndicatorStyle={{ backgroundColor: colors.muted }}
+      handleIndicatorStyle={{ backgroundColor: colors.ring }}
       backgroundStyle={{ backgroundColor: colors.border }}
       style={styles.sheetContainer}>
       <BottomSheetScrollView

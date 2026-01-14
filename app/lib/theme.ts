@@ -17,7 +17,7 @@ export const THEME = {
     accent: 'hsl(10 18% 75%)',
     accentForeground: 'hsl(10 18% 15%)',
     destructive: 'hsl(17 84% 30%)',
-    border: 'hsl(10 6% 93%)',
+    border: 'hsl(10 70% 93%)',
     input: 'hsl(10 6% 93%)',
     ring: 'hsl(0 100% 75.44%)',
     radius: '0.5rem',

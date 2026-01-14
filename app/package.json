@@ -36,6 +36,7 @@
     "@rn-primitives/toggle": "^1.2.0",
     "@rn-primitives/toggle-group": "^1.2.0",
     "@rn-primitives/tooltip": "^1.2.0",
+    "@shopify/flash-list": "2.0.2",
     "axios": "^1.12.2",
     "base64-arraybuffer": "^1.0.2",
     "base64-js": "^1.5.1",

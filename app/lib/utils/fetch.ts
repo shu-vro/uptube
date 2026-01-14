@@ -18,7 +18,7 @@ const request = async (
 
     if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
     const url = Constants.expoConfig?.extra?.UPTUBE_API + '/api/v1' + endpoint;
-    console.log(url);
+    console.log(method, url);
     // check if local storage has token
     const tokenFromStorage = await getItemSecure('token');
     token = token || tokenFromStorage;
@@ -36,9 +36,12 @@ const request = async (
         payload = encryptedParams;
       }
     }
-    const response = await axios[method](url, {
-      [method === 'get' ? 'params' : 'data']: payload,
+    const response = await axios({
+      method,
       headers,
+      url,
+      data: method !== 'get' ? payload : undefined,
+      params: method === 'get' ? payload : undefined,
     });
     if (response.data.success) {
       return full ? response : response.data?.data;
