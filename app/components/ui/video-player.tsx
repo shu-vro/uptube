@@ -453,6 +453,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
                   onPictureInPictureStatusChanged={(e) => {
                     onPipChange?.(e.isActive);
                   }}
+                  showNotificationControls
                   poster={poster}
                   {...rest}
                 />

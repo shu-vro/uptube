@@ -48,6 +48,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         enableAndroidPictureInPicture: true,
         enableBackgroundAudio: true,
+        enableNotificationControls: true,
       },
     ],
     'expo-router',
