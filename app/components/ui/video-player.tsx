@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   BackHandler,
   TextInput,
+  useWindowDimensions,
 } from 'react-native';
 import { Text } from './text';
 import {
@@ -32,7 +33,7 @@ import {
   Gauge,
   Captions,
 } from 'lucide-react-native';
-import Slider from '@react-native-community/slider';
+import { Slider } from '@miblanchard/react-native-slider';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -93,6 +94,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     ref
   ) => {
     const videoRef = useRef<VideoRef>(null);
+    const CHANGABLE_DIMENSION = useWindowDimensions();
 
     useImperativeHandle(ref, () => ({
       seek: (time: number) => {
@@ -117,6 +119,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     const [isScrubbing, setIsScrubbing] = useState(false);
     const rateInitialized = useRef(false);
     const longPressActive = useRef(false);
+    const volumeThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => {
       setSpeedInput(rate.toFixed(2));
     }, [rate]);
@@ -381,18 +384,32 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       })
       .onUpdate((e) => {
         if (e.x > SCREEN_WIDTH * 0.7) {
-          const newVolume =
-            volumeBase.value - e.translationY / (((videoSize?.height || 300) / 3) * 2);
+          const sensitivity = videoSize?.height || 300;
+          const newVolume = volumeBase.value - e.translationY / sensitivity;
           const clampedVolume = Math.max(0, Math.min(1, newVolume));
-          runOnJS(applySystemVolume)(clampedVolume);
+
+          // Update UI immediately for smooth feedback
+          runOnJS(setSystemVolume)(clampedVolume);
+
+          // Throttle actual system volume changes for smoother performance
+          if (volumeThrottleRef.current) {
+            clearTimeout(volumeThrottleRef.current);
+          }
+          volumeThrottleRef.current = setTimeout(() => {
+            runOnJS(applySystemVolume)(clampedVolume);
+          }, 50);
         }
       })
       .onFinalize((e) => {
-        const newVolume =
-          volumeBase.value - e.translationY / (((videoSize?.height || 300) / 3) * 2);
+        if (volumeThrottleRef.current) {
+          clearTimeout(volumeThrottleRef.current);
+        }
+        const sensitivity = videoSize?.height || 300;
+        const newVolume = volumeBase.value - e.translationY / sensitivity;
         const clampedVolume = Math.max(0, Math.min(1, newVolume));
         volumeOpacity.value = withTiming(0, { duration: 500 });
         runOnJS(applySystemVolume)(clampedVolume);
+        volumeBase.value = clampedVolume;
       });
 
     const taps = Gesture.Exclusive(doubleTap, singleTap);
@@ -523,46 +540,53 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
         <Animated.View
           className="absolute bottom-0 w-full bg-black/60 py-2 pb-0"
           style={[controlsStyle]}>
-          <View className="flex flex-col items-center justify-between">
+            <View className="flex flex-col items-center justify-between">
+            <View className="w-full flex-row items-center justify-between bg-black/60 px-4 pb-2">
+              <TouchableOpacity onPress={(e) => {}}>
+              <Text className="font-medium text-white">
+                {formatTime(currentTime)}/{formatTime(duration)}
+              </Text>
+              </TouchableOpacity>
+              <View className="flex-1 flex-row justify-end">
+              <TouchableOpacity
+                onPress={() => {
+                setOpenSettings(true);
+                }}
+                className="ml-4">
+                <Settings size={20} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={enterPip} className="ml-4">
+                <PictureInPicture2 size={20} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={toggleFullscreen} className="ml-4">
+                {isFullscreen ? (
+                <Minimize size={20} color="white" />
+                ) : (
+                <Maximize size={20} color="white" />
+                )}
+              </TouchableOpacity>
+              </View>
+            </View>
             <Slider
-              style={{ flex: 1, width: '100%' }}
+              containerStyle={{
+              flex: 1,
+              height: 16,
+              width: CHANGABLE_DIMENSION.width - 36,
+              zIndex: 20,
+              }}
               minimumValue={0}
               maximumValue={duration}
               value={currentTime}
               onSlidingStart={handleSlidingStart}
-              onSlidingComplete={handleSlidingComplete}
-              onValueChange={handleSliderChange}
+              onSlidingComplete={(values) => handleSlidingComplete(values[0])}
+              onValueChange={(values) => handleSliderChange(values[0])}
               minimumTrackTintColor="#FFFFFF"
               maximumTrackTintColor="#FFFFFF50"
               thumbTintColor="#FFFFFF"
+              trackStyle={{ height: 4, borderRadius: 2 }}
+              thumbStyle={{ width: 16, height: 16, borderRadius: 8 }}
             />
-            <View className="mt-2 w-full flex-row items-center justify-between px-4 pb-2">
-              <TouchableOpacity onPress={(e) => {}}>
-                <Text className="font-medium text-white">
-                  {formatTime(currentTime)}/{formatTime(duration)}
-                </Text>
-              </TouchableOpacity>
-              <View className="flex-1 flex-row justify-end">
-                <TouchableOpacity
-                  onPress={() => {
-                    setOpenSettings(true);
-                  }}
-                  className="ml-4">
-                  <Settings size={20} color="white" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={enterPip} className="ml-4">
-                  <PictureInPicture2 size={20} color="white" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={toggleFullscreen} className="ml-4">
-                  {isFullscreen ? (
-                    <Minimize size={20} color="white" />
-                  ) : (
-                    <Maximize size={20} color="white" />
-                  )}
-                </TouchableOpacity>
-              </View>
             </View>
-          </View>
         </Animated.View>
         <Sheet open={openSettings} onClose={() => setOpenSettings(false)}>
           <Text variant="h3">Settings</Text>
@@ -619,12 +643,13 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
           <View className="mt-4">
             <Text className="text-foreground">Speed (0.25x - 4x)</Text>
             <Slider
-              style={{ width: '100%' }}
+              containerStyle={{ width: '100%', height: 40 }}
               minimumValue={0.25}
               maximumValue={4}
               step={0.05}
               value={rate}
-              onValueChange={(v) => {
+              onValueChange={(values) => {
+                const v = values[0];
                 const clamped = Math.min(4, Math.max(0.25, v));
                 const next = Number(clamped.toFixed(2));
                 setRate(next);
@@ -633,7 +658,29 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
               minimumTrackTintColor={THEME[colorScheme!].foreground}
               maximumTrackTintColor={THEME[colorScheme!].foreground + '50'}
               thumbTintColor={THEME[colorScheme!].foreground}
+              trackStyle={{ height: 4, borderRadius: 2 }}
+              thumbStyle={{ width: 20, height: 20, borderRadius: 10 }}
             />
+            <View className="mt-4 flex-row flex-wrap justify-center gap-2">
+              {[0.5, 1, 1.5, 2, 4].map((speed) => (
+                <TouchableOpacity
+                  key={speed}
+                  onPress={() => {
+                    setRate(speed);
+                    setSpeedInput(speed.toFixed(2));
+                  }}
+                  className={`rounded-lg px-4 py-2 ${
+                    rate === speed ? 'bg-primary' : 'bg-white/10'
+                  }`}>
+                  <Text
+                    className={`font-semibold ${
+                      rate === speed ? 'text-primary-foreground' : 'text-foreground'
+                    }`}>
+                    {speed}x
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <View className="mt-3 flex-row items-center justify-between">
               <TouchableOpacity
                 onPress={() => {

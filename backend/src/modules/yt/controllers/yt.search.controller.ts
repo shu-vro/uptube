@@ -54,11 +54,10 @@ export async function searchYtVideosAndSaveToDB(
   const [existingVideos, existingCreators] = await Promise.all([
     prisma.video.findMany({
       where: { id: { in: videoIds } },
-      include: { creator: true, thumbnails: true },
+      include: { creator: true },
     }),
     prisma.creator.findMany({
       where: { id: { in: creatorIds } },
-      include: { avatars: true },
     }),
   ]);
   // console.timeEnd("two");
@@ -88,6 +87,14 @@ export async function searchYtVideosAndSaveToDB(
     const upsertOps = channelInfos.flatMap((info) => {
       if (info.status !== "fulfilled") return [];
       const md = info.value.metadata;
+      const avatars = _.uniqBy(
+        (md.thumbnail || []).map((t) => ({
+          url: t.url.split("?")[0],
+          width: parseInt(t.width?.toString() ?? "0", 10),
+          height: parseInt(t.height?.toString() ?? "0", 10),
+        })),
+        "url"
+      );
       return [
         prisma.creator.upsert({
           where: { id: md.external_id },
@@ -96,6 +103,7 @@ export async function searchYtVideosAndSaveToDB(
             description: md.description,
             url: md.url,
             vanity_channel_url: md.vanity_channel_url,
+            avatars,
           },
           create: {
             id: md.external_id,
@@ -103,6 +111,7 @@ export async function searchYtVideosAndSaveToDB(
             description: md.description || "No Description",
             url: md.url || `https://www.youtube.com/channel/${md.external_id}`,
             vanity_channel_url: md.vanity_channel_url || null,
+            avatars,
           },
         }),
       ];
@@ -112,29 +121,6 @@ export async function searchYtVideosAndSaveToDB(
     // console.time("five");
     newCreators = await prisma.$transaction(upsertOps);
     // console.timeEnd("five");
-
-    // console.time("six");
-    // Handle avatars for new creators only
-    const allAvatars = _.uniqBy(
-      channelInfos.flatMap((info) => {
-        if (info.status !== "fulfilled") return [];
-        return (info.value.metadata.thumbnail || []).map((t) => ({
-          url: t.url.split("?")[0],
-          creator_id: info.value.metadata.external_id,
-          width: parseInt(t.width?.toString() ?? "0", 10),
-          height: parseInt(t.height?.toString() ?? "0", 10),
-        }));
-      }),
-      "url"
-    );
-
-    if (allAvatars.length > 0) {
-      await prisma.thumbnail.createMany({
-        data: allAvatars,
-        skipDuplicates: true,
-      });
-    }
-    // console.timeEnd("six");
   }
 
   // Fetch missing videos
@@ -168,6 +154,14 @@ export async function searchYtVideosAndSaveToDB(
               short_description: videoDetails?.short_description,
               duration: videoDetails.duration,
               view_count: videoDetails.view_count,
+              thumbnails: _.uniqBy(
+                (videoDetails.thumbnail || []).map((t) => ({
+                  url: t.url.split("?")[0],
+                  width: t.width || 0,
+                  height: t.height || 0,
+                })),
+                "url"
+              ),
             },
             create: {
               id: videoDetails.id,
@@ -176,18 +170,16 @@ export async function searchYtVideosAndSaveToDB(
               short_description: videoDetails?.short_description,
               duration: videoDetails.duration || 0,
               view_count: videoDetails.view_count || 0,
-              thumbnails: {
-                create: _.uniqBy(
-                  (videoDetails.thumbnail || []).map((t) => ({
-                    url: t.url.split("?")[0],
-                    width: t.width || 0,
-                    height: t.height || 0,
-                  })),
-                  "url"
-                ),
-              },
+              thumbnails: _.uniqBy(
+                (videoDetails.thumbnail || []).map((t) => ({
+                  url: t.url.split("?")[0],
+                  width: t.width || 0,
+                  height: t.height || 0,
+                })),
+                "url"
+              ),
             },
-            include: { creator: true, thumbnails: true },
+            include: { creator: true },
           };
         } catch (error: any) {
           logger.warn(`Failed to fetch video ${videoId}:`, error);
@@ -274,13 +266,15 @@ export async function updateVideo(videoInfo: Video) {
           keywords: info.basic_info.keywords || [],
           last_manual_fetch: new Date(),
           available_qualities: info.streaming_data
-            ? (Array.from(
-                new Set(
-                  info.streaming_data.adaptive_formats.map(
-                    (e) => e.quality_label
+            ? (
+                Array.from(
+                  new Set(
+                    info.streaming_data.adaptive_formats.map(
+                      (e) => e.quality_label
+                    )
                   )
-                )
-              ).filter((e) => !!e) as string[]).concat(["best", "bestefficiency"])
+                ).filter((e) => !!e) as string[]
+              ).concat(["best", "bestefficiency"])
             : [],
           category: info.basic_info.category
             ? String(info.basic_info.category)
@@ -302,30 +296,14 @@ export async function updateVideo(videoInfo: Video) {
                 },
               })) || [],
           },
-          thumbnails: {
-            upsert:
-              _.uniqBy(
-                info.basic_info.thumbnail?.map((thumbnail) => ({
-                  url: thumbnail.url.split("?")[0],
-                  width: thumbnail.width,
-                  height: thumbnail.height,
-                })) || [],
-                "url"
-              ).map((thumbnail) => ({
-                where: {
-                  url: thumbnail.url,
-                },
-                create: {
-                  url: thumbnail.url,
-                  width: thumbnail.width,
-                  height: thumbnail.height,
-                },
-                update: {
-                  width: thumbnail.width,
-                  height: thumbnail.height,
-                },
-              })) || [],
-          },
+          thumbnails: _.uniqBy(
+            info.basic_info.thumbnail?.map((thumbnail) => ({
+              url: thumbnail.url.split("?")[0],
+              width: thumbnail.width,
+              height: thumbnail.height,
+            })) || [],
+            "url"
+          ),
           nextEdges: {
             upsert: nextVideos.map((video, i) => ({
               where: {
@@ -344,29 +322,14 @@ export async function updateVideo(videoInfo: Video) {
                       parseViewCount(
                         video.short_view_count.text?.toString() || "0"
                       ) || 0,
-                    thumbnails: {
-                      upsert: _.uniqBy(
-                        video.thumbnails.map((thumbnail) => ({
-                          url: thumbnail.url.split("?")[0],
-                          width: thumbnail.width,
-                          height: thumbnail.height,
-                        })),
-                        "url"
-                      ).map((thumbnail) => ({
-                        where: {
-                          url: thumbnail.url,
-                        },
-                        create: {
-                          url: thumbnail.url,
-                          width: thumbnail.width,
-                          height: thumbnail.height,
-                        },
-                        update: {
-                          width: thumbnail.width,
-                          height: thumbnail.height,
-                        },
+                    thumbnails: _.uniqBy(
+                      video.thumbnails.map((thumbnail) => ({
+                        url: thumbnail.url.split("?")[0],
+                        width: thumbnail.width,
+                        height: thumbnail.height,
                       })),
-                    },
+                      "url"
+                    ),
                   },
                 },
               },
@@ -385,16 +348,14 @@ export async function updateVideo(videoInfo: Video) {
                         parseViewCount(
                           video.short_view_count.text?.toString() || "0"
                         ) || 0,
-                      thumbnails: {
-                        create: _.uniqBy(
-                          video.thumbnails.map((thumbnail) => ({
-                            url: thumbnail.url.split("?")[0],
-                            width: thumbnail.width,
-                            height: thumbnail.height,
-                          })),
-                          "url"
-                        ),
-                      },
+                      thumbnails: _.uniqBy(
+                        video.thumbnails.map((thumbnail) => ({
+                          url: thumbnail.url.split("?")[0],
+                          width: thumbnail.width,
+                          height: thumbnail.height,
+                        })),
+                        "url"
+                      ),
                       creator: {
                         connectOrCreate: {
                           where: {

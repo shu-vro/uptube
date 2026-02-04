@@ -35,7 +35,7 @@ Platform.shim.eval = async (
 export const yt = await Innertube.create({
   cache: new UniversalCache(true, "./.cache"),
   generate_session_locally: true,
-  // cookie: ``,
+  cookie: ``,
 });
 
 // not used
@@ -63,17 +63,7 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
       id: videoId,
     },
     include: {
-      creator: {
-        include: {
-          avatars: true,
-        },
-      },
-      thumbnails: {
-        orderBy: {
-          width: "desc",
-        },
-        take: 2,
-      },
+      creator: true,
       captions: true,
       nextEdges: {
         orderBy: {
@@ -85,12 +75,6 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
           to: {
             include: {
               creator: true,
-              thumbnails: {
-                take: 2,
-                orderBy: {
-                  width: "desc",
-                },
-              },
             },
           },
         },
@@ -141,22 +125,7 @@ export const home = asyncHandler(async (req: Request) => {
         view_count: "desc",
       },
       include: {
-        creator: {
-          include: {
-            avatars: {
-              orderBy: {
-                width: "asc",
-              },
-              take: 1,
-            },
-          },
-        },
-        thumbnails: {
-          orderBy: {
-            width: "desc",
-          },
-          take: 2,
-        },
+        creator: true,
       },
     });
     req._success(videos);
@@ -171,22 +140,7 @@ export const home = asyncHandler(async (req: Request) => {
       },
     },
     include: {
-      creator: {
-        include: {
-          avatars: {
-            orderBy: {
-              width: "asc",
-            },
-            take: 1,
-          },
-        },
-      },
-      thumbnails: {
-        orderBy: {
-          width: "desc",
-        },
-        take: 2,
-      },
+      creator: true,
     },
   });
   req._success(videos);
@@ -251,14 +205,11 @@ export const do_something = asyncHandler(async (req: Request) => {
   //   },
   // });
 
-  const videoInfo = await yt.getStreamingData(videoId, {
-    format: "any",
-    type: "video+audio",
-    quality: "bestefficiency",
-  });
+  // const videoInfo = await yt.getInfo(videoId);
 
-  Bun.write(Bun.file("yt-video-info.json"), JSON.stringify(videoInfo, null, 2));
+  // Bun.write(Bun.file("yt-video-info.json"), JSON.stringify(videoInfo, null, 2));
 
+  const videoInfo = await yt.getHomeFeed();
   // const dld = await yt.download("m6qieXZsgwo", {
   //   // quality: "hd720",
   // });

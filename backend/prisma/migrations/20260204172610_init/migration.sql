@@ -25,6 +25,8 @@ CREATE TABLE "Video" (
     "category" TEXT,
     "extra" JSONB DEFAULT '{}',
     "last_manual_fetch" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "available_qualities" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "thumbnails" JSONB NOT NULL DEFAULT '[]',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -55,27 +57,13 @@ CREATE TABLE "Caption" (
 );
 
 -- CreateTable
-CREATE TABLE "Thumbnail" (
-    "id" TEXT NOT NULL,
-    "video_id" TEXT,
-    "creator_id" TEXT,
-    "url" TEXT NOT NULL,
-    "width" INTEGER NOT NULL,
-    "height" INTEGER NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "extra" JSONB DEFAULT '{}',
-
-    CONSTRAINT "Thumbnail_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "Creator" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT,
     "url" TEXT NOT NULL,
     "vanity_channel_url" TEXT,
+    "avatars" JSONB DEFAULT '[]',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "extra" JSONB DEFAULT '{}',
@@ -92,12 +80,6 @@ CREATE INDEX "VideoNext_toId_idx" ON "VideoNext"("toId");
 -- CreateIndex
 CREATE INDEX "VideoNext_position_idx" ON "VideoNext"("position");
 
--- CreateIndex
-CREATE UNIQUE INDEX "Thumbnail_url_key" ON "Thumbnail"("url");
-
--- CreateIndex
-CREATE INDEX "Thumbnail_width_idx" ON "Thumbnail"("width");
-
 -- AddForeignKey
 ALTER TABLE "Video" ADD CONSTRAINT "Video_channel_id_fkey" FOREIGN KEY ("channel_id") REFERENCES "Creator"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -109,9 +91,3 @@ ALTER TABLE "VideoNext" ADD CONSTRAINT "VideoNext_toId_fkey" FOREIGN KEY ("toId"
 
 -- AddForeignKey
 ALTER TABLE "Caption" ADD CONSTRAINT "Caption_video_id_fkey" FOREIGN KEY ("video_id") REFERENCES "Video"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Thumbnail" ADD CONSTRAINT "Thumbnail_video_id_fkey" FOREIGN KEY ("video_id") REFERENCES "Video"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Thumbnail" ADD CONSTRAINT "Thumbnail_creator_id_fkey" FOREIGN KEY ("creator_id") REFERENCES "Creator"("id") ON DELETE CASCADE ON UPDATE CASCADE;

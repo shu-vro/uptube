@@ -37,14 +37,15 @@ model Video {
   like_count          Int       @default(0)
   category            String?
   captions            Caption[]
+  heatmap             Json?     @default("[]")
   extra               Json?     @default("{}")
   last_manual_fetch   DateTime  @default(now())
   available_qualities String[]  @default([])
+  thumbnails          Json      @default("[]")
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  thumbnails Thumbnail[] @relation("VideoToThumbnails")
-  creator    Creator     @relation(fields: [channel_id], references: [id])
+  creator Creator @relation(fields: [channel_id], references: [id])
 
   nextEdges VideoNext[] @relation("FromVideo")
   prevEdges VideoNext[] @relation("ToVideo")
@@ -77,32 +78,28 @@ model Caption {
 }
 
 // should save only 1, because the urls are the same
-model Thumbnail {
-  id         String   @id @default(cuid())
-  video_id   String?
-  creator_id String?
-  url        String   @unique
-  width      Int
-  height     Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  extra      Json?    @default("{}")
+// don't need to save thumbnail at all. we could just save as json.
+// model Thumbnail {
+//   id         String   @id @default(cuid())
+//   url        String   @unique
+//   width      Int
+//   height     Int
+//   createdAt  DateTime @default(now())
+//   updatedAt  DateTime @updatedAt
+//   extra      Json?    @default("{}")
 
-  video   Video?   @relation("VideoToThumbnails", fields: [video_id], references: [id], onDelete: Cascade)
-  creator Creator? @relation(fields: [creator_id], references: [id], onDelete: Cascade)
-
-  @@index([width])
-}
+//   @@index([width])
+// }
 
 model Creator {
-  id                 String      @id @default(cuid())
+  id                 String   @id @default(cuid())
   title              String
   description        String?
   url                String
   vanity_channel_url String?
-  avatars            Thumbnail[]
+  avatars            Json?    @default("[]")
   Videos             Video[]
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  extra              Json?       @default("{}")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  extra              Json?    @default("{}")
 }

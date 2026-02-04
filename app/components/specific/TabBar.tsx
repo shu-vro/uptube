@@ -45,7 +45,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   return (
     <View
       onLayout={onTabbarLayout}
-      className="absolute bottom-2 mx-4 flex-row items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-black/10 backdrop-blur-xl dark:bg-white/10"
+      className="absolute bottom-4 mx-4 flex-row items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-black/10 backdrop-blur-xl dark:bg-white/10"
       style={styles.tabbar}>
       <BlurView
         style={StyleSheet.absoluteFill}
