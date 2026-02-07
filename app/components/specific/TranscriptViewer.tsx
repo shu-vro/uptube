@@ -1,9 +1,6 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import { ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { useColorScheme } from 'nativewind';
-import { THEME } from '@/lib/theme';
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 
 type CaptionEntry = {
   text: string;
@@ -38,6 +35,7 @@ export function TranscriptViewer({ captions, currentTime, onSeek }: TranscriptVi
     const entries: CaptionEntry[] = [];
 
     captions.forEach((caption) => {
+      console.log(caption);
       const textEntries = caption.base_url_to_json?.transcript?.text;
       if (textEntries && Array.isArray(textEntries)) {
         textEntries.forEach((entry) => {

@@ -13,11 +13,17 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
-import { AlignVerticalDistributeCenter, ArrowLeft, Flame } from 'lucide-react-native';
+import {
+  AlignVerticalDistributeCenter,
+  ArrowBigDown,
+  ArrowLeft,
+  Flame,
+  ThumbsDown,
+} from 'lucide-react-native';
 import { useState, useCallback } from 'react';
 
 import { Text } from '@/components/ui/text';
-import { get, post } from '@/lib/utils/fetch';
+import { get, post, put } from '@/lib/utils/fetch';
 import { Video } from '@/types/prisma';
 import { useColorScheme } from 'nativewind';
 import { THEME } from '@/lib/theme';
@@ -28,6 +34,7 @@ import { VideoCardGrid } from '@/components/specific/Search';
 import { TranscriptViewer } from '@/components/specific/TranscriptViewer';
 import Sheet from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import axios from 'axios';
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -64,10 +71,48 @@ export default function VideoDetailScreen() {
   }, []);
 
   // Fetch video details
-  const { data, error, isLoading, mutate } = useSWR(
+  const { data, error, isLoading, mutate } = useSWR<Video>(
     id ? `/public/yt/video?id=${id}` : null,
     (url: string) => get({ endpoint: url })
   );
+
+  useEffect(() => {
+    if (data) {
+      (async () => {
+        if (
+          !data.extra?.last_disliked_at ||
+          data.extra?.last_disliked_at < Date.now() - 3 * 24 * 60 * 60 * 1000
+        ) {
+          const dislikes = await axios.get(
+            `https://returnyoutubedislikeapi.com/votes?videoId=${data.id}`
+          );
+          if (dislikes.status !== 200) {
+            if (dislikes.status === 429) {
+              return;
+            }
+            return console.log('[RETURNYOUTUBEDISLIKEAPI]: Failed to fetch dislike count');
+          }
+          mutate(
+            {
+              ...data,
+              dislike_count: dislikes.data.dislikes,
+              extra: { ...data.extra, last_disliked_at: Date.now() },
+            },
+            false
+          );
+          // send this data to server
+          try {
+            await put({
+              endpoint: `/public/yt/update-dislikes/${data.id}`,
+              params: { dislike_count: dislikes.data.dislikes },
+            });
+          } catch (error) {
+            //
+          }
+        }
+      })();
+    }
+  }, [data]);
 
   const video: Video | undefined = data;
 
@@ -107,6 +152,7 @@ export default function VideoDetailScreen() {
 
   return (
     <SafeAreaView
+      style={{ flex: 1 }}
       className="flex-1 bg-background"
       edges={isPlayerFullscreen || isPip ? [] : ['top']}>
       {!isPlayerFullscreen && !isPip && (
@@ -176,6 +222,14 @@ export default function VideoDetailScreen() {
                   <ThumbsUp size={18} color={colors.foreground} />
                   <Text className="font-medium">{miniNumber(video.like_count || 0)}</Text>
                 </Pressable>
+                <Pressable className="mr-4 flex-row items-center gap-1 rounded-full bg-muted px-4 py-2">
+                  <ThumbsDown size={18} color={colors.foreground} />
+                  <Text className="font-medium">{miniNumber(video.dislike_count || 0)}</Text>
+                </Pressable>
+                <Pressable className="mr-4 flex-row items-center gap-1 rounded-full bg-muted px-4 py-2">
+                  <ArrowBigDown size={24} color={colors.foreground} />
+                  <Text className="font-medium">Download</Text>
+                </Pressable>
               </ScrollView>
 
               {video?.creator && (
@@ -201,11 +255,11 @@ export default function VideoDetailScreen() {
               )}
 
               <View className="mb-6 rounded-xl bg-muted p-3">
-                <Text className="mb-2 font-semibold">Description</Text>
+                <Text className="mb-2 font-bold">Description</Text>
                 <Text
-                  variant="muted"
+                  variant="default"
                   numberOfLines={isDescriptionExpanded ? undefined : 2}
-                  className="text-sm leading-5">
+                  className="text-sm italic leading-5">
                   {video.extra?.description ||
                     video.short_description ||
                     'No description available.'}
@@ -213,7 +267,7 @@ export default function VideoDetailScreen() {
                 <Pressable
                   onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
                   className="mt-2 flex-row items-center">
-                  <Text className="mr-1 text-sm font-semibold">
+                  <Text className="mr-1 text-sm font-bold">
                     {isDescriptionExpanded ? 'Show less' : 'Show more'}
                   </Text>
                   {isDescriptionExpanded ? (

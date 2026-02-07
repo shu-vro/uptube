@@ -51,6 +51,7 @@ import Sheet from './sheet';
 import { THEME } from '@/lib/theme';
 import { useColorScheme } from 'nativewind';
 import { Switch } from './switch';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export type VideoPlayerHandle = {
   seek: (time: number) => void;
@@ -507,6 +508,43 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
         <Animated.View
           style={[StyleSheet.absoluteFill, styles.controlsContainer, controlsStyle]}
           pointerEvents={controlsVisible ? 'box-none' : 'none'}>
+          {/* Top gradient fade */}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.3)', 'transparent']}
+            locations={[0, 0.5, 1]}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 120,
+            }}
+            pointerEvents="none"
+          />
+          {/* Top floating controls */}
+          <View
+            className="absolute left-4 right-4 top-4 flex-row items-center justify-between"
+            pointerEvents={controlsVisible ? 'auto' : 'none'}>
+            <View />
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                onPress={() => setOpenSettings(true)}
+                className="rounded-full bg-white/10 p-2">
+                <Settings size={20} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={enterPip} className="rounded-full bg-white/10 p-2">
+                <PictureInPicture2 size={20} color="white" />
+              </TouchableOpacity>
+            </View>
+            {savedScale.value > 1.05 && (
+              <View className="rounded-full bg-white/10 px-3 py-1">
+                <Text className="text-xs font-medium text-white">
+                  {savedScale.value.toFixed(1)}x
+                </Text>
+              </View>
+            )}
+          </View>
+
           <View
             className="flex-1 items-center justify-center"
             pointerEvents={controlsVisible ? 'box-none' : 'none'}>
@@ -536,43 +574,55 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
               </TouchableOpacity>
             )}
           </View>
-        </Animated.View>
-        <Animated.View
-          className="absolute bottom-0 w-full bg-black/60 py-2 pb-0"
-          style={[controlsStyle]}>
-            <View className="flex flex-col items-center justify-between">
-            <View className="w-full flex-row items-center justify-between bg-black/60 px-4 pb-2">
-              <TouchableOpacity onPress={(e) => {}}>
-              <Text className="font-medium text-white">
-                {formatTime(currentTime)}/{formatTime(duration)}
+
+          <View className="absolute bottom-3 flex w-full flex-row items-center justify-between px-4">
+            <View className="rounded-full bg-white/10 px-3 py-1">
+              <Text className="text-xs font-medium text-white">
+                {formatTime(currentTime)} / {formatTime(duration)}
               </Text>
-              </TouchableOpacity>
-              <View className="flex-1 flex-row justify-end">
+            </View>
+            <View className="flex-row items-center justify-end py-1">
               <TouchableOpacity
                 onPress={() => {
-                setOpenSettings(true);
+                  setOpenSpeedSheet(true);
                 }}
-                className="ml-4">
-                <Settings size={20} color="white" />
+                className="mr-2 rounded bg-white/10 px-2 py-1">
+                <Text className="text-xs font-bold text-white">{rate}x</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={enterPip} className="ml-4">
-                <PictureInPicture2 size={20} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={toggleFullscreen} className="ml-4">
+              <TouchableOpacity onPress={toggleFullscreen}>
                 {isFullscreen ? (
-                <Minimize size={20} color="white" />
+                  <Minimize size={20} color="white" />
                 ) : (
-                <Maximize size={20} color="white" />
+                  <Maximize size={20} color="white" />
                 )}
               </TouchableOpacity>
-              </View>
             </View>
+          </View>
+        </Animated.View>
+
+        {/* Bottom gradient fade */}
+        <Animated.View
+          style={[{ position: 'absolute', bottom: 0, left: 0, right: 0 }, controlsStyle]}
+          pointerEvents="none">
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']}
+            locations={[0, 0.5, 1]}
+            style={{
+              width: '100%',
+              height: 120,
+            }}
+          />
+        </Animated.View>
+
+        {/* Bottom bar with slider and controls */}
+        <Animated.View className="absolute bottom-0 w-full" style={[controlsStyle]}>
+          <View className="w-full">
+            {/* Progress bar merged with bottom */}
             <Slider
               containerStyle={{
-              flex: 1,
-              height: 16,
-              width: CHANGABLE_DIMENSION.width - 36,
-              zIndex: 20,
+                width: '100%',
+                height: 24,
+                marginBottom: -8,
               }}
               minimumValue={0}
               maximumValue={duration}
@@ -580,13 +630,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
               onSlidingStart={handleSlidingStart}
               onSlidingComplete={(values) => handleSlidingComplete(values[0])}
               onValueChange={(values) => handleSliderChange(values[0])}
-              minimumTrackTintColor="#FFFFFF"
-              maximumTrackTintColor="#FFFFFF50"
-              thumbTintColor="#FFFFFF"
-              trackStyle={{ height: 4, borderRadius: 2 }}
-              thumbStyle={{ width: 16, height: 16, borderRadius: 8 }}
+              minimumTrackTintColor="#FF0000"
+              maximumTrackTintColor="rgba(255,255,255,0.3)"
+              thumbTintColor="#FF0000"
+              trackStyle={{ height: 3, borderRadius: 0 }}
+              thumbStyle={{ width: 14, height: 14, borderRadius: 7 }}
             />
-            </View>
+            {/* Bottom controls bar */}
+          </View>
         </Animated.View>
         <Sheet open={openSettings} onClose={() => setOpenSettings(false)}>
           <Text variant="h3">Settings</Text>

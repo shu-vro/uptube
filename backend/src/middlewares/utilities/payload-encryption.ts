@@ -11,6 +11,7 @@ const payloadEncryptionMiddleware = (
   try {
     req.query = req.query || {};
     req.body = req.body || {};
+    req.encrypted = false;
     if (!FLAGS.ALLOW_UNENCRYPTED_REQUESTS) {
       const encryptedParams = req.query.encrypted;
       const encryptedBody = req.body.encrypted;
@@ -30,6 +31,7 @@ const payloadEncryptionMiddleware = (
           ...req.query,
           ...parsedParams,
         });
+        req.encrypted = true;
         delete req.query.encrypted;
         console.log(req.query);
       } catch (error: any) {
@@ -46,6 +48,7 @@ const payloadEncryptionMiddleware = (
           ...req.body,
           ...parsedBody,
         });
+        req.encrypted = true;
         delete req.body.encrypted;
         console.log(req.body);
       } catch (error: any) {

@@ -26,6 +26,7 @@ export interface Video {
   type: string;
   keywords: string[];
   like_count: number;
+  dislike_count: number;
   category: string | null;
   captions?: Caption[];
   extra: Record<string, any>;

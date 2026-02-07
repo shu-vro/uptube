@@ -79,3 +79,31 @@ export const post = async ({
 }>) => {
   return await request('post', { endpoint, payload: params, token, full });
 };
+
+export const put = async ({
+  endpoint = '',
+  params = {},
+  token = '',
+  full = false,
+}: Partial<{
+  endpoint: string;
+  params?: any;
+  token?: string;
+  full: boolean;
+}>) => {
+  return await request('put', { endpoint, payload: params, token, full });
+};
+
+export const del = async ({
+  endpoint = '',
+  params = {},
+  token = '',
+  full = false,
+}: Partial<{
+  endpoint: string;
+  params?: any;
+  token?: string;
+  full: boolean;
+}>) => {
+  return await request('delete', { endpoint, payload: params, token, full });
+};

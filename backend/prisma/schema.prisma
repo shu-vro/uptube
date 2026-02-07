@@ -35,6 +35,7 @@ model Video {
   type                String    @default("video")
   keywords            String[]  @default([])
   like_count          Int       @default(0)
+  dislike_count       Int       @default(0)
   category            String?
   captions            Caption[]
   heatmap             Json?     @default("[]")

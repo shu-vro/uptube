@@ -1,8 +1,35 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
+import { createMMKV } from 'react-native-mmkv';
+import Constants from 'expo-constants';
+
+export const mmkvStorage = createMMKV({
+  encryptionKey: Constants.expoConfig?.extra?.MMKV_ENCRYPTION_KEY,
+  id: 'uptube',
+});
 
 export const setItem = async (key: string, value: any) => {
+  try {
+    const stringValue = JSON.stringify(value);
+    mmkvStorage.set(key, stringValue);
+  } catch (e) {
+    console.log('[MMKV-STORAGE]: Error saving data', e);
+    return null;
+  }
+};
+
+export const getItem = async (key: string) => {
+  try {
+    const stringValue = mmkvStorage.getString(key);
+    return stringValue ? JSON.parse(stringValue) : null;
+  } catch (e) {
+    console.log('[MMKV-STORAGE]: Error reading data', e);
+    return null;
+  }
+};
+
+export const setAsyncItem = async (key: string, value: any) => {
   try {
     const stringValue = JSON.stringify(value);
     await AsyncStorage.setItem(key, stringValue);
@@ -12,7 +39,7 @@ export const setItem = async (key: string, value: any) => {
   }
 };
 
-export const getItem = async (key: string) => {
+export const getAsyncItem = async (key: string) => {
   try {
     const stringValue = await AsyncStorage.getItem(key);
     return stringValue ? JSON.parse(stringValue) : null;

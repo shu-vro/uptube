@@ -14,6 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   newArchEnabled: true,
   extra: {
     UPTUBE_API: process.env.UPTUBE_API,
+    MMKV_ENCRYPTION_KEY: process.env.MMKV_ENCRYPTION_KEY,
     eas: {
       projectId: 'e85bb0bd-70bd-47ae-b3c1-085ef92c34db',
     },
@@ -43,6 +44,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/icons/icons-folder/iTunesArtwork@2x.png',
   },
   plugins: [
+    'expo-secure-store',
     [
       'react-native-video',
       {

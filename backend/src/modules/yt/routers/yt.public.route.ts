@@ -6,7 +6,9 @@ import {
   home,
   searchVideos,
   showSuggestions,
+  updateDislikes,
 } from "../controllers/yt.controller";
+import isEncrypted from "middlewares/auth/is_encrypted";
 
 const router = Router();
 
@@ -321,6 +323,61 @@ router.get("/show-suggestions", showSuggestions);
  *         description: Server error
  */
 router.post("/download-data/:id", getDownloadData);
+/**
+ * @openapi
+ * /api/v1/public/yt/update-dislikes/{video_id}:
+ *   put:
+ *     summary: Update dislike count for a video
+ *     description: Updates the dislike count for a given video ID. Checks if the video was disliked recently (within 7 days) to prevent frequent updates.
+ *     parameters:
+ *       - in: path
+ *         name: video_id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: YouTube video ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               dislike_count:
+ *                 type: number
+ *                 description: The new dislike count value
+ *             required:
+ *               - dislike_count
+ *     responses:
+ *       200:
+ *         description: Dislike count updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: string
+ *                   example: "ok"
+ *       400:
+ *         description: Invalid request (missing video ID, invalid dislike count, or rate limited)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Video not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Server error
+ */
+router.put("/update-dislikes/:video_id", isEncrypted, updateDislikes);
 /**
  * @openapi
  * /api/v1/public/yt/do-something:

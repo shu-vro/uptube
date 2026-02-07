@@ -165,6 +165,66 @@ export const getDownloadData = asyncHandler(
   }
 );
 
+export const updateDislikes = asyncHandler(async (req: Request) => {
+  const videoId = req.params.video_id;
+  const dislikeCount = req.body.dislike_count;
+  if (!videoId) {
+    return req._error("Video ID is required");
+  }
+
+  const video = await prisma.video.findUnique({
+    where: { id: videoId },
+    // only select 2 fields: dislike_count and extra
+    select: {
+      dislike_count: true,
+      extra: true,
+    },
+  });
+
+  if (!video) {
+    return req._error("Video not found");
+  }
+  if (dislikeCount === undefined || typeof dislikeCount !== "number") {
+    return req._error("Dislike count is required and must be a number");
+  }
+
+  if (!video.extra) {
+    video.extra = {};
+  }
+
+  const days = 3;
+
+  if (
+    typeof video.extra === "object" &&
+    video.extra !== null &&
+    (video.extra as any).last_disliked_at &&
+    (video.extra as any).last_disliked_at >
+      Date.now() - days * 24 * 60 * 60 * 1000
+  ) {
+    return req._error(
+      `You can only dislike a video once every ${days} days`,
+      429
+    );
+  }
+
+  console.log("updating again");
+
+  await prisma.video.update({
+    where: { id: videoId },
+    data: {
+      dislike_count: dislikeCount,
+      extra: {
+        ...(typeof video.extra === "object" && video.extra !== null
+          ? video.extra
+          : {}),
+        last_disliked_at: new Date().getTime(),
+      },
+    },
+  });
+
+  req._success("ok");
+});
+
 import { SabrStream } from "googlevideo/sabr-stream";
 import { buildSabrFormat, EnabledTrackTypes } from "googlevideo/utils";
 import type { SabrFormat } from "googlevideo/shared-types";
