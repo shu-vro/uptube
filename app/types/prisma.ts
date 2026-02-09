@@ -45,6 +45,8 @@ export interface Video {
   last_manual_fetch: Date | string;
   available_qualities: string[];
   thumbnails: Array<Thumbnail>;
+  sponsorblocks: JsonValue;
+  chapters: any[] | null;
   createdAt: Date | string;
   updatedAt: Date | string;
   heatmap: JsonValue | null;

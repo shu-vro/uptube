@@ -34,6 +34,8 @@ model Video {
   last_manual_fetch   DateTime    @default(now())
   available_qualities String[]    @default([])
   thumbnails          Json        @default("[]")
+  sponsorblocks       Json        @default("[]")
+  chapters            Chapter[]
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
   dislike_count       String      @default("0")
@@ -42,6 +44,16 @@ model Video {
   creator             Creator     @relation(fields: [channel_id], references: [id])
   nextEdges           VideoNext[] @relation("FromVideo")
   prevEdges           VideoNext[] @relation("ToVideo")
+}
+
+model Chapter {
+  id      String  @id @default(cuid())
+  title   String  @default("")
+  start   Int
+  end     Int
+  extra   Json?   @default("{}")
+  video   Video?  @relation(fields: [videoId], references: [id])
+  videoId String?
 }
 
 model VideoNext {

@@ -5,7 +5,6 @@ export default function isEncrypted(
   res: Response,
   next: NextFunction
 ) {
-  console.log(req.headers, req.encrypted);
   if (req.headers["x-encrypt"] === "1" && req.encrypted) {
     next();
   } else {

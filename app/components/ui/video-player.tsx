@@ -5,6 +5,7 @@ import React, {
   useRef,
   forwardRef,
   useImperativeHandle,
+  useMemo,
 } from 'react';
 import Video, { ReactVideoProps, VideoRef, OnProgressData, OnLoadData } from 'react-native-video';
 import {
@@ -32,6 +33,7 @@ import {
   ChevronRight,
   Gauge,
   Captions,
+  Album,
 } from 'lucide-react-native';
 import { Slider } from '@miblanchard/react-native-slider';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -53,6 +55,9 @@ import { useColorScheme } from 'nativewind';
 import { Switch } from './switch';
 import { LinearGradient } from 'expo-linear-gradient';
 import HeatmapGraph, { isValidHeatmap, HeatmapData } from './heatmap-graph';
+import { type Video as TVideo } from '@/types/prisma';
+import { VideoComponentProps } from '@/app/video/[id]';
+import { formatTime } from '@/lib/utils/number-format';
 
 export type VideoPlayerHandle = {
   seek: (time: number) => void;
@@ -67,20 +72,16 @@ type Props = {
   onPipChange?: (isActive: boolean) => void;
   onCurrentTimeChange?: (currentTime: number) => void;
   setOpenQualitySheet?: React.Dispatch<React.SetStateAction<boolean>>;
-  onTranscriptToggle?: () => void;
+  onTranscriptToggle?: VideoComponentProps['onTranscriptToggle'];
   heatmap?: HeatmapData | Record<string, never> | null;
+  chapters: TVideo['chapters'];
+  title?: string;
+  description?: string;
+  author?: string;
 } & ReactVideoProps;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DOUBLE_TAP_DELAY = 300;
-
-function formatTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
 const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
   (
@@ -94,6 +95,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       setOpenQualitySheet,
       onTranscriptToggle,
       heatmap,
+      chapters,
+      author,
       ...rest
     },
     ref
@@ -450,6 +453,15 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       transform: [{ scale: scale.value }],
     }));
 
+    // chapter selection
+    const runningChapter = useMemo(() => {
+      if (!chapters || chapters.length === 0) return null;
+      return (
+        chapters.find((chapter) => currentTime >= chapter.start && currentTime < chapter.end) ||
+        null
+      );
+    }, [currentTime, chapters]);
+
     return (
       <View style={[{ width: '100%', backgroundColor: 'black' }, style]} className="relative">
         <GestureHandlerRootView style={[{ flex: 1, backgroundColor: 'black' }]}>
@@ -460,6 +472,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
                   ref={videoRef}
                   source={{
                     uri: src,
+                    metadata: {
+                      title: rest?.title || 'UPTUBE VIDEO',
+                      description: rest?.description || 'UPTUBE DESCRIPTION',
+                      artist: author,
+                      imageUri: poster,
+                    },
                   }}
                   style={StyleSheet.absoluteFill}
                   resizeMode="contain"
@@ -475,12 +493,18 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
                     setPaused(true);
                     showControls();
                   }}
+                  playInBackground
+                  playWhenInactive
                   onBuffer={({ isBuffering }) => setIsBuffering(isBuffering)}
                   onPictureInPictureStatusChanged={(e) => {
                     onPipChange?.(e.isActive);
                   }}
                   showNotificationControls
-                  poster={poster}
+                  poster={{
+                    src: poster,
+                    resizeMode: 'cover',
+                    alt: 'UPTUBE Video Poster',
+                  }}
                   {...rest}
                 />
               </Animated.View>
@@ -537,15 +561,15 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
             <View className="flex-row gap-2">
               <TouchableOpacity
                 onPress={() => setOpenSettings(true)}
-                className="rounded-full bg-white/10 p-2">
+                className="rounded-full bg-white/15 p-2">
                 <Settings size={20} color="white" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={enterPip} className="rounded-full bg-white/10 p-2">
+              <TouchableOpacity onPress={enterPip} className="rounded-full bg-white/15 p-2">
                 <PictureInPicture2 size={20} color="white" />
               </TouchableOpacity>
             </View>
             {savedScale.value > 1.05 && (
-              <View className="rounded-full bg-white/10 px-3 py-1">
+              <View className="rounded-full bg-white/15 px-3 py-1">
                 <Text className="text-xs font-medium text-white">
                   {savedScale.value.toFixed(1)}x
                 </Text>
@@ -560,7 +584,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
               <ActivityIndicator size="large" color="white" />
             ) : ended ? (
               <TouchableOpacity
-                className="rounded-full bg-white/20 px-4 py-3"
+                className="rounded-full bg-white/15 px-4 py-3"
                 onPress={() => {
                   videoRef.current?.seek(0);
                   setEnded(false);
@@ -586,17 +610,34 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
           <View
             className="absolute flex w-full flex-row items-center justify-between px-4"
             style={{ bottom: hasHeatmap ? 38 : 12 }}>
-            <View className="rounded-full bg-white/10 px-3 py-1">
-              <Text className="text-xs font-medium text-white">
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </Text>
+            <View className="mr-4 flex flex-shrink flex-row items-center justify-start gap-1">
+              <View className="flex-shrink-0 rounded-full bg-white/15 px-3 py-1">
+                <Text className="text-xs font-medium text-white">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </Text>
+              </View>
+              {runningChapter && (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  className="flex-shrink rounded-full bg-white/15 px-3 py-1"
+                  onPress={() => {
+                    onTranscriptToggle?.('CHAPTER');
+                  }}>
+                  <Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    className="text-xs font-medium text-white">
+                    {runningChapter?.title}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
             <View className="flex-row items-center justify-end py-1">
               <TouchableOpacity
                 onPress={() => {
                   setOpenSpeedSheet(true);
                 }}
-                className="mr-2 rounded bg-white/10 px-2 py-1">
+                className="mr-2 rounded bg-white/15 px-2 py-1">
                 <Text className="text-xs font-bold text-white">{rate}x</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={toggleFullscreen}>
@@ -675,12 +716,21 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
             onPress={() => setOpenSpeedSheet(true)}
           />
           <SettingsButton
+            Icon={Album}
+            label="Chapters"
+            type="option"
+            onPress={() => {
+              setOpenSettings(false);
+              onTranscriptToggle?.('CHAPTER');
+            }}
+          />
+          <SettingsButton
             Icon={Captions}
             label="Transcripts"
             type="option"
             onPress={() => {
               setOpenSettings(false);
-              onTranscriptToggle?.();
+              onTranscriptToggle?.('TRANSCRIPT');
             }}
           />
           <SettingsButton
@@ -740,7 +790,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
                     setSpeedInput(speed.toFixed(2));
                   }}
                   className={`rounded-lg px-4 py-2 ${
-                    rate === speed ? 'bg-primary' : 'bg-white/10'
+                    rate === speed ? 'bg-primary' : 'bg-white/15'
                   }`}>
                   <Text
                     className={`font-semibold ${

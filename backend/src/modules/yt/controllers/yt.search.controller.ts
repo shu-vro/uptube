@@ -8,6 +8,7 @@ import { Video } from "generated/prisma/client";
 import { yt } from "./yt.controller";
 import _ from "lodash";
 import { XMLParser } from "fast-xml-parser";
+import parseYouTubeChapters from "utils/parse-youtube-chapters";
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -243,6 +244,12 @@ export async function updateVideo(videoInfo: Video) {
       }) || []
     );
 
+    const chapters = parseYouTubeChapters(
+      info.basic_info.short_description || ""
+    );
+
+    console.log("chapters", chapters);
+
     const nextVideos =
       info.player_overlays?.end_screen?.results
         ?.filter((v) => v.is(YTNodes.EndScreenVideo))
@@ -265,6 +272,14 @@ export async function updateVideo(videoInfo: Video) {
           keywords: info.basic_info.keywords || [],
           last_manual_fetch: new Date(),
           heatmap: (info.heat_map as any) || {},
+          chapters: {
+            deleteMany: {},
+            create: chapters.map((chapter) => ({
+              title: chapter.title,
+              start: chapter.start,
+              end: chapter.end || Number(info.basic_info.duration) || 0,
+            })),
+          },
           available_qualities: info.streaming_data
             ? (
                 Array.from(

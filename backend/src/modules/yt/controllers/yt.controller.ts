@@ -66,6 +66,7 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
     include: {
       creator: true,
       captions: true,
+      chapters: true,
       nextEdges: {
         orderBy: {
           position: "asc",
@@ -211,8 +212,6 @@ export const updateDislikes = asyncHandler(async (req: Request) => {
       429
     );
   }
-
-  console.log("updating again");
 
   await prisma.video.update({
     where: { id: videoId },

@@ -9,6 +9,7 @@ import {
   Dimensions,
   StatusBar,
   Animated,
+  TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,12 +29,20 @@ import { Video } from '@/types/prisma';
 import { useColorScheme } from 'nativewind';
 import { THEME } from '@/lib/theme';
 import VideoPlayer, { SettingsButton, VideoPlayerHandle } from '@/components/ui/video-player';
-import { miniNumber, distanceFromToday, twoDateDifference } from '@/lib/utils/number-format';
+import {
+  miniNumber,
+  distanceFromToday,
+  twoDateDifference,
+  formatTime,
+} from '@/lib/utils/number-format';
 import { ThumbsUp, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { VideoCardGrid } from '@/components/specific/Search';
 import { TranscriptViewer } from '@/components/specific/TranscriptViewer';
 import Sheet from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { SwipableTabs } from '@/components/ui/swipable-tabs';
+import { BottomSheetContainer } from '@/components/ui/bottom-sheet-container';
+import { X } from 'lucide-react-native';
 import axios from 'axios';
 
 export default function VideoDetailScreen() {
@@ -45,6 +54,7 @@ export default function VideoDetailScreen() {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isTranscriptSheetOpen, setIsTranscriptSheetOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<TranscriptToggleType>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const videoPlayerRef = useRef<VideoPlayerHandle | null>(null);
 
@@ -66,8 +76,11 @@ export default function VideoDetailScreen() {
     videoPlayerRef.current?.seek(time);
   }, []);
 
-  const handleTranscriptToggle = useCallback(() => {
-    setIsTranscriptSheetOpen((prev) => !prev);
+  const handleTranscriptToggle = useCallback<VideoComponentProps['onTranscriptToggle']>((type) => {
+    setIsTranscriptSheetOpen(!!type);
+    if (type) {
+      setActiveTab(type);
+    }
   }, []);
 
   // Fetch video details
@@ -183,6 +196,8 @@ export default function VideoDetailScreen() {
         onSeek={handleSeek}
         videoPlayerRef={videoPlayerRef}
         isTranscriptSheetOpen={isTranscriptSheetOpen}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         onTranscriptToggle={handleTranscriptToggle}
         currentTime={currentTime}
         headerHeight={headerHeight}
@@ -292,7 +307,9 @@ export default function VideoDetailScreen() {
   );
 }
 
-type VideoComponentProps = {
+type TranscriptToggleType = 'CHAPTER' | 'TRANSCRIPT' | null;
+
+export type VideoComponentProps = {
   isPlayerFullscreen: boolean;
   isPip: boolean;
   video: Video;
@@ -303,7 +320,9 @@ type VideoComponentProps = {
   isPaused?: () => boolean;
   videoPlayerRef: React.RefObject<VideoPlayerHandle | null>;
   isTranscriptSheetOpen: boolean;
-  onTranscriptToggle: () => void;
+  activeTab: TranscriptToggleType;
+  setActiveTab: (tab: TranscriptToggleType) => void;
+  onTranscriptToggle: (type: TranscriptToggleType) => void;
   currentTime: number;
   headerHeight: number;
 };
@@ -319,6 +338,8 @@ function VideoComponentFull({
   isPaused,
   videoPlayerRef,
   isTranscriptSheetOpen,
+  activeTab,
+  setActiveTab,
   onTranscriptToggle,
   currentTime,
   headerHeight,
@@ -326,7 +347,6 @@ function VideoComponentFull({
   const [openQualitySheet, setOpenQualitySheet] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState('bestefficiency');
   const [videoHeight, setVideoHeight] = useState(0);
-  const slideAnim = useRef(new Animated.Value(1000)).current;
   const { id } = useLocalSearchParams<{ id: string }>();
   const videoRef = useRef<VideoPlayerHandle>(null);
   const { colorScheme } = useColorScheme();
@@ -354,23 +374,53 @@ function VideoComponentFull({
     mutate();
   }, [selectedQuality]);
 
-  // Animate transcript sheet
-  useEffect(() => {
-    if (isTranscriptSheetOpen) {
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 65,
-        friction: 11,
-      }).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: 1000,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [isTranscriptSheetOpen, slideAnim]);
+  const tabs = [
+    {
+      key: 'TRANSCRIPT',
+      title: 'Transcripts',
+      component: (
+        <TranscriptViewer
+          captions={(video.captions as any) || []}
+          currentTime={currentTime}
+          onSeek={onSeek}
+          isPaused={isPaused}
+        />
+      ),
+    },
+    {
+      key: 'CHAPTER',
+      title: 'Chapters',
+      component: (
+        <FlatList
+          data={(video.chapters as any[]) || []}
+          keyExtractor={(item) => item.title + item.start}
+          renderItem={({ item, index }) => {
+            const isActive = currentTime >= item.start && currentTime < item.end;
+            return (
+              <Pressable
+                onPress={() => onSeek(item.start)}
+                className={`flex-row items-center border-b border-border p-4 ${
+                  isActive ? 'bg-primary/20' : ''
+                }`}>
+                <Image
+                  source={{ uri: video.thumbnails?.[0]?.url }}
+                  className="mr-3 h-16 w-28 rounded-md bg-muted"
+                  resizeMode="cover"
+                />
+                <View className="flex-1">
+                  <Text
+                    className={`font-semibold ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                    {item.title}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">{formatTime(item.start)}</Text>
+                </View>
+              </Pressable>
+            );
+          }}
+        />
+      ),
+    },
+  ];
 
   return (
     <>
@@ -397,6 +447,10 @@ function VideoComponentFull({
           setOpenQualitySheet={setOpenQualitySheet}
           onTranscriptToggle={onTranscriptToggle}
           heatmap={video.heatmap as any}
+          chapters={(video.chapters as Video['chapters']) || []}
+          title={video.title}
+          description={video.short_description || undefined}
+          author={video.creator?.title || undefined}
         />
       </View>
       <Sheet open={openQualitySheet} onClose={() => setOpenQualitySheet(false)}>
@@ -412,46 +466,37 @@ function VideoComponentFull({
             }}></SettingsButton>
         ))}
       </Sheet>
-      {isTranscriptSheetOpen && !isPlayerFullscreen && !isPip && (
-        <Animated.View
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height:
-              Dimensions.get('window').height -
-              (StatusBar.currentHeight || 0) -
-              headerHeight -
-              videoHeight,
-            transform: [{ translateY: slideAnim }],
-            backgroundColor: colors.border,
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            paddingTop: 16,
-            paddingHorizontal: 16,
-            paddingBottom: 32,
-            zIndex: 1000,
-          }}
-          pointerEvents="auto">
-          <View className="mb-3 flex-row items-center justify-between">
-            <Text variant="h3" className="font-bold">
-              Transcript
-            </Text>
-            {/* <Pressable onPress={onTranscriptToggle} className="rounded-full bg-muted px-3 py-2">
-              <Text className="text-sm font-medium">Close</Text>
-            </Pressable> */}
-            <Button size={'sm'} onPress={onTranscriptToggle}>
-              <Text className="font-bold">Close</Text>
-            </Button>
+
+      {!isPlayerFullscreen && !isPip && (
+        <BottomSheetContainer
+          isOpen={isTranscriptSheetOpen}
+          headerHeight={headerHeight}
+          videoHeight={videoHeight}
+          onClose={() => onTranscriptToggle(null)}>
+          <View className="flex-1 bg-background px-4">
+            {/* Header with Close Button */}
+            <View className="flex-row items-center justify-between py-2">
+              <View />
+              <TouchableOpacity
+                onPress={() => {
+                  onTranscriptToggle(null);
+                  setActiveTab(null);
+                }}
+                className="rounded-full bg-muted p-1">
+                <X size={20} color={colors.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Tabs */}
+            <SwipableTabs
+              tabs={tabs}
+              initialTabKey={activeTab || 'TRANSCRIPT'}
+              onTabChange={(key) => {
+                // optional: update active tab state if needed for sync
+              }}
+            />
           </View>
-          <TranscriptViewer
-            captions={(video.captions as any) || []}
-            currentTime={currentTime}
-            onSeek={onSeek}
-            isPaused={isPaused}
-          />
-        </Animated.View>
+        </BottomSheetContainer>
       )}
     </>
   );

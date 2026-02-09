@@ -1,6 +1,6 @@
 1. choose video quality
 2. chapters
-3. Heat markers
+3. Heat markers -- DONE
 4. download video
    1. clip
    2. choose all format
