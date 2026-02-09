@@ -6,6 +6,19 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
+// Helper types for JSON fields
+export interface Thumbnail {
+  url: string;
+  width: number;
+  height: number;
+}
+
+export interface Avatar {
+  url: string;
+  width: number;
+  height: number;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -13,7 +26,7 @@ export interface User {
   password: string;
   createdAt: Date | string;
   updatedAt: Date | string;
-  extra: JsonValue | null;
+  extra: Record<string, any> | null;
 }
 
 export interface Video {
@@ -22,19 +35,21 @@ export interface Video {
   channel_id: string;
   short_description: string | null;
   duration: number;
-  view_count: number;
+  view_count: string;
   type: string;
   keywords: string[];
-  like_count: number;
-  dislike_count: number;
+  like_count: string;
+  dislike_count: string;
   category: string | null;
-  captions?: Caption[];
-  extra: Record<string, any>;
+  extra: Record<string, any> | null;
+  last_manual_fetch: Date | string;
+  available_qualities: string[];
+  thumbnails: Array<Thumbnail>;
   createdAt: Date | string;
   updatedAt: Date | string;
-  thumbnails?: Thumbnail[];
+  heatmap: JsonValue | null;
+  captions?: Caption[];
   creator?: Creator;
-  available_qualities: string[] | null;
   nextEdges?: VideoNext[];
   prevEdges?: VideoNext[];
 }
@@ -43,8 +58,9 @@ export interface VideoNext {
   fromId: string;
   toId: string;
   position: number | null;
-  extra: JsonValue | null;
+  extra: Record<string, any> | null;
   createdAt: Date | string;
+  updatedAt: Date | string;
   from?: Video;
   to?: Video;
 }
@@ -54,22 +70,8 @@ export interface Caption {
   base_url_to_json: JsonValue | null;
   video_id: string | null;
   language_code: string | null;
+  extra: Record<string, any> | null;
   video?: Video | null;
-  extra: JsonValue | null;
-}
-
-export interface Thumbnail {
-  id: string;
-  video_id: string | null;
-  creator_id: string | null;
-  url: string;
-  width: number;
-  height: number;
-  createdAt: Date | string;
-  updatedAt: Date | string;
-  extra: JsonValue | null;
-  video?: Video | null;
-  creator?: Creator | null;
 }
 
 export interface Creator {
@@ -78,9 +80,9 @@ export interface Creator {
   description: string | null;
   url: string;
   vanity_channel_url: string | null;
-  avatars?: Thumbnail[];
-  Videos?: Video[];
+  avatars: Array<Avatar> | null;
   createdAt: Date | string;
   updatedAt: Date | string;
-  extra: JsonValue | null;
+  extra: Record<string, any> | null;
+  Videos?: Video[];
 }

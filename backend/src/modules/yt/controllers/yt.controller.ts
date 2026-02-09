@@ -5,6 +5,7 @@ import { Innertube, UniversalCache, YTNodes } from "youtubei.js";
 import { Platform, Types, Utils, YT, Constants } from "youtubei.js/web";
 import { sanitizeYtUrl } from "utils/yt";
 import { searchYtVideosAndSaveToDB, updateVideo } from "./yt.search.controller";
+import { differenceInDays } from "utils/time";
 import _ from "lodash";
 import {
   idSchema,
@@ -109,6 +110,8 @@ export const showSuggestions = asyncHandler(async (req: Request) => {
   req._success(suggestions);
 });
 
+import util from "util";
+
 export const home = asyncHandler(async (req: Request) => {
   const parseResult = paginationSchema.safeParse(req.query);
   if (!parseResult.success) {
@@ -133,6 +136,7 @@ export const home = asyncHandler(async (req: Request) => {
   }
 
   const vidIds = _.sampleSize(global.videoIds, limit);
+  console.log(vidIds);
   const videos = await prisma.video.findMany({
     where: {
       id: {
@@ -197,9 +201,10 @@ export const updateDislikes = asyncHandler(async (req: Request) => {
   if (
     typeof video.extra === "object" &&
     video.extra !== null &&
-    (video.extra as any).last_disliked_at &&
-    (video.extra as any).last_disliked_at >
-      Date.now() - days * 24 * 60 * 60 * 1000
+    differenceInDays(
+      new Date().toISOString(),
+      (video.extra as any).last_disliked_at || new Date(0).toISOString()
+    ) < days
   ) {
     return req._error(
       `You can only dislike a video once every ${days} days`,
@@ -212,12 +217,12 @@ export const updateDislikes = asyncHandler(async (req: Request) => {
   await prisma.video.update({
     where: { id: videoId },
     data: {
-      dislike_count: dislikeCount,
+      dislike_count: String(dislikeCount),
       extra: {
         ...(typeof video.extra === "object" && video.extra !== null
           ? video.extra
           : {}),
-        last_disliked_at: new Date().getTime(),
+        last_disliked_at: new Date().toISOString(),
       },
     },
   });
@@ -246,7 +251,7 @@ export const do_something = asyncHandler(async (req: Request) => {
   //   itag: 303,
   // });
 
-  const videoId = sanitizeYtUrl("m6qieXZsgwo");
+  const videoId = sanitizeYtUrl("PG5sv20Jiic");
   if (!videoId) {
     return req._error("Invalid video ID");
   }
@@ -265,11 +270,11 @@ export const do_something = asyncHandler(async (req: Request) => {
   //   },
   // });
 
-  // const videoInfo = await yt.getInfo(videoId);
+  const videoInfo = await yt.getInfo(videoId);
 
   // Bun.write(Bun.file("yt-video-info.json"), JSON.stringify(videoInfo, null, 2));
 
-  const videoInfo = await yt.getHomeFeed();
+  // const videoInfo = await yt.getHomeFeed();
   // const dld = await yt.download("m6qieXZsgwo", {
   //   // quality: "hd720",
   // });

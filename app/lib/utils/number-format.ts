@@ -22,3 +22,9 @@ export const numberToTime = (value: number | undefined) => {
 export const distanceFromToday = (dateString: string | number) => {
   return formatDistanceToNow(new Date(dateString), { addSuffix: true });
 };
+
+export const twoDateDifference = (date1: Date, date2: Date): number => {
+  const diffInMs = date1.getTime() - date2.getTime();
+  const msInADay = 1000 * 60 * 60 * 24;
+  return Math.floor(diffInMs / msInADay);
+};

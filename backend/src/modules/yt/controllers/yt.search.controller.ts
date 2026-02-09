@@ -153,7 +153,7 @@ export async function searchYtVideosAndSaveToDB(
               title: videoDetails.title,
               short_description: videoDetails?.short_description,
               duration: videoDetails.duration,
-              view_count: videoDetails.view_count,
+              view_count: String(videoDetails.view_count || 0),
               thumbnails: _.uniqBy(
                 (videoDetails.thumbnail || []).map((t) => ({
                   url: t.url.split("?")[0],
@@ -169,7 +169,7 @@ export async function searchYtVideosAndSaveToDB(
               channel_id: creator ? creator.id : "unknown",
               short_description: videoDetails?.short_description,
               duration: videoDetails.duration || 0,
-              view_count: videoDetails.view_count || 0,
+              view_count: String(videoDetails.view_count || 0),
               thumbnails: _.uniqBy(
                 (videoDetails.thumbnail || []).map((t) => ({
                   url: t.url.split("?")[0],
@@ -217,8 +217,8 @@ export async function searchYtVideosAndSaveToDB(
 export async function updateVideo(videoInfo: Video) {
   if (
     differenceInDays(
-      videoInfo?.last_manual_fetch.toString() || Date.now().toString(),
-      Date.now().toString()
+      Date.now().toString(),
+      videoInfo?.last_manual_fetch.toString() || Date.now().toString()
     ) > 7 ||
     Math.abs(videoInfo.updatedAt.getTime() - videoInfo.createdAt.getTime()) <
       1000
@@ -245,7 +245,6 @@ export async function updateVideo(videoInfo: Video) {
 
     const nextVideos =
       info.player_overlays?.end_screen?.results
-        .as(YTNodes.EndScreenVideo)
         ?.filter((v) => v.is(YTNodes.EndScreenVideo))
         .map((v) => v.as(YTNodes.EndScreenVideo))
         .splice(0, 6) || [];
@@ -260,11 +259,12 @@ export async function updateVideo(videoInfo: Video) {
             ? String(info.basic_info.short_description)
             : null,
           title: info.basic_info.title ? String(info.basic_info.title) : "",
-          view_count: Number(info.basic_info.view_count) || 0,
+          view_count: String(info.basic_info.view_count || 0),
           duration: Number(info.basic_info.duration) || 0,
-          like_count: Number(info.basic_info.like_count) || 0,
+          like_count: String(info.basic_info.like_count || 0),
           keywords: info.basic_info.keywords || [],
           last_manual_fetch: new Date(),
+          heatmap: (info.heat_map as any) || {},
           available_qualities: info.streaming_data
             ? (
                 Array.from(
@@ -318,10 +318,11 @@ export async function updateVideo(videoInfo: Video) {
                   update: {
                     title: video.title.toString(),
                     duration: video.duration.seconds,
-                    view_count:
+                    view_count: String(
                       parseViewCount(
                         video.short_view_count.text?.toString() || "0"
-                      ) || 0,
+                      ) || 0
+                    ),
                     thumbnails: _.uniqBy(
                       video.thumbnails.map((thumbnail) => ({
                         url: thumbnail.url.split("?")[0],
@@ -344,10 +345,11 @@ export async function updateVideo(videoInfo: Video) {
                       id: video.id,
                       title: video.title.toString(),
                       duration: video.duration.seconds,
-                      view_count:
+                      view_count: String(
                         parseViewCount(
                           video.short_view_count.text?.toString() || "0"
-                        ) || 0,
+                        ) || 0
+                      ),
                       thumbnails: _.uniqBy(
                         video.thumbnails.map((thumbnail) => ({
                           url: thumbnail.url.split("?")[0],

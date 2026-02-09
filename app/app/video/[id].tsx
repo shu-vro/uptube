@@ -27,8 +27,8 @@ import { get, post, put } from '@/lib/utils/fetch';
 import { Video } from '@/types/prisma';
 import { useColorScheme } from 'nativewind';
 import { THEME } from '@/lib/theme';
-import VideoPlayer, { SettingsButton } from '@/components/ui/video-player';
-import { miniNumber, distanceFromToday } from '@/lib/utils/number-format';
+import VideoPlayer, { SettingsButton, VideoPlayerHandle } from '@/components/ui/video-player';
+import { miniNumber, distanceFromToday, twoDateDifference } from '@/lib/utils/number-format';
 import { ThumbsUp, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { VideoCardGrid } from '@/components/specific/Search';
 import { TranscriptViewer } from '@/components/specific/TranscriptViewer';
@@ -46,7 +46,7 @@ export default function VideoDetailScreen() {
   const [currentTime, setCurrentTime] = useState(0);
   const [isTranscriptSheetOpen, setIsTranscriptSheetOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
-  const videoPlayerRef = useRef<{ seek: (time: number) => void } | null>(null);
+  const videoPlayerRef = useRef<VideoPlayerHandle | null>(null);
 
   const [isPip, setIsPip] = useState(false);
 
@@ -79,13 +79,11 @@ export default function VideoDetailScreen() {
   useEffect(() => {
     if (data) {
       (async () => {
-        if (
-          !data.extra?.last_disliked_at ||
-          data.extra?.last_disliked_at < Date.now() - 3 * 24 * 60 * 60 * 1000
-        ) {
+        if (twoDateDifference(new Date(), new Date(data.extra?.last_disliked_at || 0)) >= 3) {
           const dislikes = await axios.get(
             `https://returnyoutubedislikeapi.com/votes?videoId=${data.id}`
           );
+
           if (dislikes.status !== 200) {
             if (dislikes.status === 429) {
               return;
@@ -105,6 +103,7 @@ export default function VideoDetailScreen() {
             await put({
               endpoint: `/public/yt/update-dislikes/${data.id}`,
               params: { dislike_count: dislikes.data.dislikes },
+              throwable: true,
             });
           } catch (error) {
             //
@@ -177,6 +176,7 @@ export default function VideoDetailScreen() {
         isPlayerFullscreen={isPlayerFullscreen}
         isPip={isPip}
         video={video}
+        isPaused={videoPlayerRef.current?.isPaused}
         onFullScreenChange={onFullScreenChange}
         onPipChange={onPipChange}
         onCurrentTimeChange={handleCurrentTimeChange}
@@ -206,7 +206,7 @@ export default function VideoDetailScreen() {
 
               <View className="mb-4 flex-row flex-wrap items-center">
                 <Text variant="muted" className="text-sm">
-                  {miniNumber(video.view_count || 0)} views
+                  {miniNumber(Number(video.view_count) || 0)} views
                 </Text>
                 <Text variant="muted" className="mx-2 text-sm">
                   •
@@ -220,11 +220,13 @@ export default function VideoDetailScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
                 <Pressable className="mr-4 flex-row items-center gap-1 rounded-full bg-muted px-4 py-2">
                   <ThumbsUp size={18} color={colors.foreground} />
-                  <Text className="font-medium">{miniNumber(video.like_count || 0)}</Text>
+                  <Text className="font-medium">{miniNumber(Number(video.like_count) || 0)}</Text>
                 </Pressable>
                 <Pressable className="mr-4 flex-row items-center gap-1 rounded-full bg-muted px-4 py-2">
                   <ThumbsDown size={18} color={colors.foreground} />
-                  <Text className="font-medium">{miniNumber(video.dislike_count || 0)}</Text>
+                  <Text className="font-medium">
+                    {miniNumber(Number(video.dislike_count) || 0)}
+                  </Text>
                 </Pressable>
                 <Pressable className="mr-4 flex-row items-center gap-1 rounded-full bg-muted px-4 py-2">
                   <ArrowBigDown size={24} color={colors.foreground} />
@@ -235,7 +237,9 @@ export default function VideoDetailScreen() {
               {video?.creator && (
                 <View className="mb-6 flex-row items-center justify-between border-y border-border py-3">
                   <View className="mr-4 flex-1 flex-row items-center">
-                    {video.creator.avatars?.[0]?.url ? (
+                    {video.creator.avatars &&
+                    Array.isArray(video.creator.avatars) &&
+                    video.creator.avatars[0]?.url ? (
                       <View className="mr-3 size-10 overflow-hidden rounded-full bg-muted">
                         <Image
                           source={{ uri: video.creator.avatars[0].url }}
@@ -260,9 +264,7 @@ export default function VideoDetailScreen() {
                   variant="default"
                   numberOfLines={isDescriptionExpanded ? undefined : 2}
                   className="text-sm italic leading-5">
-                  {video.extra?.description ||
-                    video.short_description ||
-                    'No description available.'}
+                  {video.short_description || 'No description available.'}
                 </Text>
                 <Pressable
                   onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
@@ -298,7 +300,8 @@ type VideoComponentProps = {
   onPipChange: (isActive: boolean) => void;
   onCurrentTimeChange: (time: number) => void;
   onSeek: (time: number) => void;
-  videoPlayerRef: React.RefObject<{ seek: (time: number) => void } | null>;
+  isPaused?: () => boolean;
+  videoPlayerRef: React.RefObject<VideoPlayerHandle | null>;
   isTranscriptSheetOpen: boolean;
   onTranscriptToggle: () => void;
   currentTime: number;
@@ -313,6 +316,7 @@ function VideoComponentFull({
   onPipChange,
   onCurrentTimeChange,
   onSeek,
+  isPaused,
   videoPlayerRef,
   isTranscriptSheetOpen,
   onTranscriptToggle,
@@ -324,7 +328,7 @@ function VideoComponentFull({
   const [videoHeight, setVideoHeight] = useState(0);
   const slideAnim = useRef(new Animated.Value(1000)).current;
   const { id } = useLocalSearchParams<{ id: string }>();
-  const videoRef = useRef<any>(null);
+  const videoRef = useRef<VideoPlayerHandle>(null);
   const { colorScheme } = useColorScheme();
   const colors = THEME[colorScheme ?? 'light'];
 
@@ -333,6 +337,9 @@ function VideoComponentFull({
     videoPlayerRef.current = {
       seek: (time: number) => {
         videoRef.current?.seek(time);
+      },
+      isPaused: () => {
+        return videoRef.current?.isPaused() ?? false;
       },
     };
   }, [videoPlayerRef]);
@@ -365,7 +372,6 @@ function VideoComponentFull({
     }
   }, [isTranscriptSheetOpen, slideAnim]);
 
-  // console.log(JSON.stringify(downloadData?.data.url, null, 2), 'lasdkf');
   return (
     <>
       <View
@@ -382,7 +388,7 @@ function VideoComponentFull({
         }}>
         <VideoPlayer
           ref={videoRef}
-          poster={video.thumbnails?.[0]?.id}
+          poster={video.thumbnails?.[0]?.url}
           src={downloadData?.data.url}
           style={{ width: '100%', height: '100%' }}
           onFullScreenChange={onFullScreenChange}
@@ -390,6 +396,7 @@ function VideoComponentFull({
           onCurrentTimeChange={onCurrentTimeChange}
           setOpenQualitySheet={setOpenQualitySheet}
           onTranscriptToggle={onTranscriptToggle}
+          heatmap={video.heatmap as any}
         />
       </View>
       <Sheet open={openQualitySheet} onClose={() => setOpenQualitySheet(false)}>
@@ -442,6 +449,7 @@ function VideoComponentFull({
             captions={(video.captions as any) || []}
             currentTime={currentTime}
             onSeek={onSeek}
+            isPaused={isPaused}
           />
         </Animated.View>
       )}

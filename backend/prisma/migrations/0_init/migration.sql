@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
@@ -29,6 +32,8 @@ CREATE TABLE "Video" (
     "thumbnails" JSONB NOT NULL DEFAULT '[]',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "dislike_count" INTEGER NOT NULL DEFAULT 0,
+    "heatmap" JSONB DEFAULT '[]',
 
     CONSTRAINT "Video_pkey" PRIMARY KEY ("id")
 );
@@ -91,3 +96,4 @@ ALTER TABLE "VideoNext" ADD CONSTRAINT "VideoNext_toId_fkey" FOREIGN KEY ("toId"
 
 -- AddForeignKey
 ALTER TABLE "Caption" ADD CONSTRAINT "Caption_video_id_fkey" FOREIGN KEY ("video_id") REFERENCES "Video"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+

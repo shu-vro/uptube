@@ -28,8 +28,6 @@ export default function Screen() {
     }
   }, [page]);
 
-  console.log(page);
-
   return (
     <SafeAreaView className="flex-1">
       <Header />

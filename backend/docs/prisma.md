@@ -159,3 +159,12 @@ main()
 - [Prisma Documentation](https://www.prisma.io/docs/)
 - [Prisma GitHub Repository](https://github.com/prisma/prisma)
 - [Wds youtube video](https://www.youtube.com/watch?v=RebA5J-rlwg)
+
+#### Local Damage Control
+
+```bash
+mkdir -p prisma/migrations/0_init && \
+npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0_init/migration.sql
+
+npx prisma migrate resolve --applied 0_init
+```

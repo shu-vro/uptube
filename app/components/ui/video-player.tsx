@@ -52,9 +52,11 @@ import { THEME } from '@/lib/theme';
 import { useColorScheme } from 'nativewind';
 import { Switch } from './switch';
 import { LinearGradient } from 'expo-linear-gradient';
+import HeatmapGraph, { isValidHeatmap, HeatmapData } from './heatmap-graph';
 
 export type VideoPlayerHandle = {
   seek: (time: number) => void;
+  isPaused: () => boolean;
 };
 
 type Props = {
@@ -66,6 +68,7 @@ type Props = {
   onCurrentTimeChange?: (currentTime: number) => void;
   setOpenQualitySheet?: React.Dispatch<React.SetStateAction<boolean>>;
   onTranscriptToggle?: () => void;
+  heatmap?: HeatmapData | Record<string, never> | null;
 } & ReactVideoProps;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -90,16 +93,21 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       onCurrentTimeChange,
       setOpenQualitySheet,
       onTranscriptToggle,
+      heatmap,
       ...rest
     },
     ref
   ) => {
+    const hasHeatmap = isValidHeatmap(heatmap);
     const videoRef = useRef<VideoRef>(null);
     const CHANGABLE_DIMENSION = useWindowDimensions();
 
     useImperativeHandle(ref, () => ({
       seek: (time: number) => {
         videoRef.current?.seek(time);
+      },
+      isPaused: () => {
+        return paused;
       },
     }));
     const [paused, setPaused] = useState(false);
@@ -575,7 +583,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
             )}
           </View>
 
-          <View className="absolute bottom-3 flex w-full flex-row items-center justify-between px-4">
+          <View
+            className="absolute flex w-full flex-row items-center justify-between px-4"
+            style={{ bottom: hasHeatmap ? 38 : 12 }}>
             <View className="rounded-full bg-white/10 px-3 py-1">
               <Text className="text-xs font-medium text-white">
                 {formatTime(currentTime)} / {formatTime(duration)}
@@ -617,6 +627,15 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
         {/* Bottom bar with slider and controls */}
         <Animated.View className="absolute bottom-0 w-full" style={[controlsStyle]}>
           <View className="w-full">
+            {hasHeatmap && (
+              <View style={{ width: '100%', paddingHorizontal: 0, marginBottom: -4 }}>
+                <HeatmapGraph
+                  heatmap={heatmap as HeatmapData}
+                  width={CHANGABLE_DIMENSION.width}
+                  height={32}
+                />
+              </View>
+            )}
             {/* Progress bar merged with bottom */}
             <Slider
               containerStyle={{
@@ -758,7 +777,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
                     }
                   }}
                   keyboardType="decimal-pad"
-                  className="w-20 rounded bg-white/10 px-2 py-1 text-white"
+                  className="w-20 rounded bg-card px-2 py-1 text-foreground"
                 />
               </View>
             </View>

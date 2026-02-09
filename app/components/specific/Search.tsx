@@ -18,56 +18,63 @@ const IMAGE_STYLE = StyleSheet.create({
 }).thumbnail;
 
 export const VideoCardList = ({ item }: { item: Video }) => {
+  const router = useRouter();
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme ?? 'light'];
 
   return (
-    <Card className="mb-3">
-      <CardContent className="p-3">
-        <View className="flex-row">
-          <View className="h-18 mr-3 w-32 items-center justify-center overflow-hidden rounded-lg bg-muted">
-            <ImageBackground
-              source={{
-                uri: item.thumbnails?.sort((a, b) => (a?.width || 0) - (b?.width || 0))[
-                  Math.min((item.thumbnails?.length ?? 1) - 1, 1)
-                ]?.id,
-              }}
-              style={[IMAGE_STYLE, { flex: 1, width: '100%', height: '100%' }]}
-              resizeMode="cover"
-              onError={() => console.log('Image failed to load:', item.thumbnails)}>
-              <View className="absolute inset-0 items-center justify-center">
-                <Lucide name="circle-play" size={24} color={theme.mutedForeground} />
-              </View>
-              <View className="absolute bottom-2 right-2 rounded-sm bg-background/60 px-1.5 py-0.5">
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={() => {
+        router.push(`/video/${item.id}`);
+      }}>
+      <Card className="mb-3 gap-0 py-2">
+        <CardContent className="p-3 py-0">
+          <View className="flex-row">
+            <View className="mr-3 aspect-video w-32 items-center justify-center overflow-hidden rounded-lg bg-muted">
+              <ImageBackground
+                source={{
+                  uri: item.thumbnails?.sort((a, b) => (a?.width || 0) - (b?.width || 0))[
+                    Math.min((item.thumbnails?.length ?? 1) - 1, 1)
+                  ]?.url,
+                }}
+                style={[IMAGE_STYLE, { flex: 1, width: '100%', height: '100%' }]}
+                resizeMode="cover"
+                onError={() => console.log('Image failed to load:', item.thumbnails)}>
+                <View className="absolute inset-0 items-center justify-center">
+                  <Lucide name="circle-play" size={24} color={theme.mutedForeground} />
+                </View>
+                <View className="absolute bottom-2 right-2 rounded-sm bg-background/60 px-1.5 py-0.5">
+                  <Text variant="muted" className="text-xs">
+                    {numberToTime(item.duration || 0)}
+                  </Text>
+                </View>
+              </ImageBackground>
+            </View>
+
+            <View className="flex-1">
+              <Text className="mb-1 text-sm font-semibold leading-5" numberOfLines={2}>
+                {item.title}
+              </Text>
+              <Text variant="muted" className="mb-1 text-xs" numberOfLines={1}>
+                {item.creator?.title}
+              </Text>
+              <View className="flex-row items-center">
                 <Text variant="muted" className="text-xs">
-                  {numberToTime(item.duration || 0)}
+                  {miniNumber(Number(item.view_count) || 0)} views
+                </Text>
+                <Text variant="muted" className="mx-1 text-xs">
+                  •
+                </Text>
+                <Text variant="muted" className="text-xs">
+                  {distanceFromToday(item.createdAt.toString() || 0)}
                 </Text>
               </View>
-            </ImageBackground>
-          </View>
-
-          <View className="flex-1">
-            <Text className="mb-1 text-sm font-semibold leading-5" numberOfLines={2}>
-              {item.title}
-            </Text>
-            <Text variant="muted" className="mb-1 text-xs" numberOfLines={1}>
-              {item.creator?.title}
-            </Text>
-            <View className="flex-row items-center">
-              <Text variant="muted" className="text-xs">
-                {miniNumber(item.view_count || 0)} views
-              </Text>
-              <Text variant="muted" className="mx-1 text-xs">
-                •
-              </Text>
-              <Text variant="muted" className="text-xs">
-                {distanceFromToday(item.createdAt.toString() || 0)}
-              </Text>
             </View>
           </View>
-        </View>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </TouchableOpacity>
   );
 };
 
@@ -106,7 +113,7 @@ export function VideoCardGrid({ item }: { item: Video }) {
           </Text>
           <View className="flex-row items-center">
             <Text variant="muted" className="text-xs">
-              {miniNumber(item.view_count || 0)} views
+              {miniNumber(Number(item.view_count) || 0)} views
             </Text>
             <Text variant="muted" className="mx-1 text-xs">
               •

@@ -1,13 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider   = "prisma-client" // or `prisma-client-js`
+  provider   = "prisma-client"
   output     = "../src/generated/prisma"
-  engineType = "client" // enable Prisma ORM without Rust
+  engineType = "client"
 }
 
 datasource db {
@@ -19,50 +13,46 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
-  password  String // hashed
+  password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   extra     Json?    @default("{}")
 }
 
 model Video {
-  id                  String    @id @default(cuid())
+  id                  String      @id @default(cuid())
   title               String
   channel_id          String
   short_description   String?
-  duration            Int       @default(0)
-  view_count          Int       @default(0)
-  type                String    @default("video")
-  keywords            String[]  @default([])
-  like_count          Int       @default(0)
-  dislike_count       Int       @default(0)
+  duration            Int         @default(0)
+  view_count          String      @default("0")
+  type                String      @default("video")
+  keywords            String[]    @default([])
+  like_count          String      @default("0")
   category            String?
+  extra               Json?       @default("{}")
+  last_manual_fetch   DateTime    @default(now())
+  available_qualities String[]    @default([])
+  thumbnails          Json        @default("[]")
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  dislike_count       String      @default("0")
+  heatmap             Json?       @default("{}")
   captions            Caption[]
-  heatmap             Json?     @default("[]")
-  extra               Json?     @default("{}")
-  last_manual_fetch   DateTime  @default(now())
-  available_qualities String[]  @default([])
-  thumbnails          Json      @default("[]")
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  creator Creator @relation(fields: [channel_id], references: [id])
-
-  nextEdges VideoNext[] @relation("FromVideo")
-  prevEdges VideoNext[] @relation("ToVideo")
+  creator             Creator     @relation(fields: [channel_id], references: [id])
+  nextEdges           VideoNext[] @relation("FromVideo")
+  prevEdges           VideoNext[] @relation("ToVideo")
 }
 
 model VideoNext {
-  fromId String
-  toId   String
-
+  fromId    String
+  toId      String
   position  Int?
   extra     Json?    @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  from Video @relation("FromVideo", fields: [fromId], references: [id], onDelete: Cascade)
-  to   Video @relation("ToVideo", fields: [toId], references: [id], onDelete: Cascade)
+  from      Video    @relation("FromVideo", fields: [fromId], references: [id], onDelete: Cascade)
+  to        Video    @relation("ToVideo", fields: [toId], references: [id], onDelete: Cascade)
 
   @@id([fromId, toId])
   @@index([toId])
@@ -71,26 +61,12 @@ model VideoNext {
 
 model Caption {
   base_url         String  @id
-  base_url_to_json Json?   @default("{}") // make sure to convert xml to string.
+  base_url_to_json Json?   @default("{}")
   video_id         String?
   language_code    String?
-  video            Video?  @relation(fields: [video_id], references: [id])
   extra            Json?   @default("{}")
+  video            Video?  @relation(fields: [video_id], references: [id])
 }
-
-// should save only 1, because the urls are the same
-// don't need to save thumbnail at all. we could just save as json.
-// model Thumbnail {
-//   id         String   @id @default(cuid())
-//   url        String   @unique
-//   width      Int
-//   height     Int
-//   createdAt  DateTime @default(now())
-//   updatedAt  DateTime @updatedAt
-//   extra      Json?    @default("{}")
-
-//   @@index([width])
-// }
 
 model Creator {
   id                 String   @id @default(cuid())
@@ -99,8 +75,8 @@ model Creator {
   url                String
   vanity_channel_url String?
   avatars            Json?    @default("[]")
-  Videos             Video[]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   extra              Json?    @default("{}")
+  Videos             Video[]
 }
