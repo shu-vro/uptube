@@ -20,7 +20,11 @@ if (ENV.NODE_ENV === "development") {
   app.use(
     "/reference",
     apiReference({
+      agent: {
+        disabled: true,
+      },
       content: openapiSpecification,
+      pageTitle: "API Reference - Uptube",
     })
   );
 }

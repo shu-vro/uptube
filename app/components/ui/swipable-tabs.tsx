@@ -47,7 +47,7 @@ export function SwipableTabs({ tabs, initialTabKey, onTabChange }: Props) {
     if (initialTabKey) {
       const index = tabs.findIndex((t) => t.key === initialTabKey);
       if (index !== -1) {
-        scrollToIndex(index);
+        setTimeout(() => scrollToIndex(index), 0);
         setActiveTab(initialTabKey);
       }
     }
