@@ -1,0 +1,55 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+group = 'expo.modules.ytdl'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.ytdl"
+  compileSdkVersion 35
+
+  defaultConfig {
+    minSdkVersion 24
+    targetSdkVersion 35
+
+    testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    consumerProguardFiles "consumer-rules.pro"
+
+    ndk {
+        abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+    }
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+    }
+  }
+
+  lintOptions {
+    abortOnError false
+  }
+
+  kotlinOptions {
+    jvmTarget = '17'
+  }
+}
+
+dependencies {
+  implementation project(':expo-modules-core')
+  implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22"
+  
+  // Kotlin coroutines
+  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3"
+  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+
+  // youtube dl android dependencies
+  implementation 'io.github.junkfood02.youtubedl-android:library:0.17.3'
+  implementation 'io.github.junkfood02.youtubedl-android:ffmpeg:0.17.3'
+  implementation 'io.github.junkfood02.youtubedl-android:common:0.17.3'
+}
+
+repositories {
+    maven { url 'https://jitpack.io' }
+    mavenCentral()
+}

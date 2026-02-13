@@ -111,8 +111,6 @@ export const showSuggestions = asyncHandler(async (req: Request) => {
   req._success(suggestions);
 });
 
-import util from "util";
-
 export const home = asyncHandler(async (req: Request) => {
   const parseResult = paginationSchema.safeParse(req.query);
   if (!parseResult.success) {

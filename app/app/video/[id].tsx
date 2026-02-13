@@ -44,6 +44,13 @@ import { SwipableTabs } from '@/components/ui/swipable-tabs';
 import { BottomSheetContainer } from '@/components/ui/bottom-sheet-container';
 import { X } from 'lucide-react-native';
 import axios from 'axios';
+import {
+  getInfo,
+  download,
+  getStreamUrls,
+  addProgressListener,
+  YTDLInfo,
+} from '@/modules/uptube-ytdl';
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

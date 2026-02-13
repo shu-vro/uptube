@@ -1,0 +1,13 @@
+{
+  "name": "uptube-ytdl",
+  "version": "1.0.0",
+  "description": "YTDL-Android wrapper for Expo",
+  "main": "index.ts",
+  "types": "index.ts",
+  "files": [
+    "index.ts",
+    "src",
+    "android",
+    "expo-module.config.json"
+  ]
+}
