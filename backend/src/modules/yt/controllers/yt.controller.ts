@@ -248,7 +248,7 @@ export const do_something = asyncHandler(async (req: Request) => {
   //   itag: 303,
   // });
 
-  const videoId = sanitizeYtUrl("PG5sv20Jiic");
+  const videoId = sanitizeYtUrl("RQYxIFHcMrY");
   if (!videoId) {
     return req._error("Invalid video ID");
   }
@@ -268,6 +268,9 @@ export const do_something = asyncHandler(async (req: Request) => {
   // });
 
   const videoInfo = await yt.getInfo(videoId);
+  // const videoInfo = await yt.search("typescript", {
+  //   type: "all",
+  // });
 
   // Bun.write(Bun.file("yt-video-info.json"), JSON.stringify(videoInfo, null, 2));
 

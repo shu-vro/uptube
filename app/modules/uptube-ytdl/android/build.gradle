@@ -38,15 +38,10 @@ android {
 dependencies {
   implementation project(':expo-modules-core')
   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22"
-  
-  // Kotlin coroutines
-  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3"
-  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
 
   // youtube dl android dependencies
-  implementation 'io.github.junkfood02.youtubedl-android:library:0.17.3'
-  implementation 'io.github.junkfood02.youtubedl-android:ffmpeg:0.17.3'
-  implementation 'io.github.junkfood02.youtubedl-android:common:0.17.3'
+  implementation 'io.github.junkfood02.youtubedl-android:library:0.18.1'
+  implementation 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1'
 }
 
 repositories {

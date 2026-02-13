@@ -6,9 +6,11 @@ import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.Promise
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class UptubeYTDLModule : Module() {
@@ -22,27 +24,28 @@ class UptubeYTDLModule : Module() {
 
     Events("onProgress")
 
-    // AsyncFunction to get video info
     AsyncFunction("getInfo") { url: String ->
       try {
-        ensureInitialized() // Initialize only when first called
+        ensureInitialized()
         val request = YoutubeDLRequest(url).apply {
           addOption("--dump-json")
           addOption("--no-check-certificate")
+          addOption("--skip-download")
         }
         
         val response = YoutubeDL.getInstance().execute(request)
-        return@AsyncFunction response.out ?: ""
+        response.out ?: ""
       } catch (e: Exception) {
         Log.e("UptubeYTDL", "Failed to get info for $url", e)
-        throw e
+        throw Exception("Failed to get video info: ${e.message ?: "Unknown error"}")
       }
     }
 
-    // AsyncFunction for downloading
+    // Use AsyncFunction with suspend for proper coroutine support
     AsyncFunction("download") { url: String, format: String, outputPath: String ->
       ensureInitialized()
-      scope.launch {
+      
+      withContext(Dispatchers.IO) {
         try {
           val outputFile = File(outputPath)
           outputFile.parentFile?.mkdirs()
@@ -57,48 +60,59 @@ class UptubeYTDLModule : Module() {
           }
           
           YoutubeDL.getInstance().execute(request) { progress, eta, line ->
-            sendEvent("onProgress", mapOf(
+            this@UptubeYTDLModule.sendEvent("onProgress", mapOf(
               "url" to url,
               "progress" to progress,
               "eta" to eta,
               "line" to line
             ))
           }
+          
+          Log.d("UptubeYTDL", "Download completed for $url")
         } catch (e: Exception) {
           Log.e("UptubeYTDL", "Download failed for $url", e)
-          sendEvent("onProgress", mapOf(
+          this@UptubeYTDLModule.sendEvent("onProgress", mapOf(
             "url" to url,
-            "error" to e.message ?: "Unknown download error"
+            "error" to (e.message ?: "Unknown download error")
           ))
+          throw Exception("Download failed: ${e.message ?: "Unknown error"}")
         }
       }
     }
   }
 
-  /**
-   * Safe initialization that avoids crashing the module during app startup.
-   */
   @Synchronized
   private fun ensureInitialized() {
     if (isInitialized) return
     
     try {
-      // Accessing the application context safely through the Expo appContext
       val context = appContext.reactContext?.applicationContext 
         ?: throw IllegalStateException("React Context is null. Cannot initialize native libraries.")
       
-      Log.d("UptubeYTDL", "Starting initialization...")
+      Log.d("UptubeYTDL", "Starting initialization with context: ${context.packageName}")
       
-      // Initialize binaries
-      YoutubeDL.getInstance().init(context)
-      FFmpeg.getInstance().init(context)
+      try {
+        YoutubeDL.getInstance().init(context)
+        Log.d("UptubeYTDL", "YoutubeDL initialized successfully")
+      } catch (e: Exception) {
+        Log.e("UptubeYTDL", "YoutubeDL init failed", e)
+        throw Exception("YoutubeDL initialization failed: ${e.message ?: e.javaClass.simpleName}")
+      }
+      
+      try {
+        FFmpeg.getInstance().init(context)
+        Log.d("UptubeYTDL", "FFmpeg initialized successfully")
+      } catch (e: Exception) {
+        Log.e("UptubeYTDL", "FFmpeg init failed", e)
+        throw Exception("FFmpeg initialization failed: ${e.message ?: e.javaClass.simpleName}")
+      }
       
       isInitialized = true
-      Log.d("UptubeYTDL", "YoutubeDL and FFmpeg initialized successfully")
+      Log.d("UptubeYTDL", "All native libraries initialized successfully")
     } catch (e: Exception) {
       Log.e("UptubeYTDL", "Failed to initialize native binaries", e)
-      // We throw the error so the JS side receives a clear rejection message
-      throw Exception("Native library initialization failed: ${e.message}")
+      isInitialized = false
+      throw Exception("Native library initialization failed: ${e.message ?: e.javaClass.simpleName}")
     }
   }
 }
