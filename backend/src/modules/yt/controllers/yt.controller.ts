@@ -256,22 +256,13 @@ export const do_something = asyncHandler(async (req: Request) => {
   // const videos = await yt.search("Typescript", {
   //   type: "all",
   // });
+  const videoInfo = await yt.getShortsVideoInfo(videoId);
 
-  // const uploadableShorts = (
-  //   (videos?.results ?? []).flatMap((r) =>
-  //     r?.type === "GridShelfView"
-  //       ? (r as YTNodes.GridShelfView)?.contents ?? []
-  //       : []
-  //   ) as YTNodes.ShortsLockupView[]
-  // )
-  //   .map((v) => v?.on_tap_endpoint?.payload?.videoId)
-  //   .filter(Boolean);
-
-  const videoInfo = await yt.actions.execute("/player", {
-    videoId,
-    client: "YTMUSIC",
-    parse: true,
-  });
+  // const videoInfo = await yt.actions.execute("/player", {
+  //   videoId,
+  //   client: "YTMUSIC",
+  //   parse: true,
+  // });
 
   // const videoInfo = await yt.getInfo(videoId);
   // const videoInfo = await yt.search("typescript", {

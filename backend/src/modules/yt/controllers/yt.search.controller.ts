@@ -4,7 +4,7 @@ import { sanitizeYtUrl } from "utils/yt";
 import { parseDurationToSeconds } from "utils/yt/parseDurationToSeconds";
 import { parseViewCount } from "utils/yt/parseViewCount";
 import { differenceInDays } from "utils/time";
-import { Video, VideoType } from "generated/prisma/client";
+import { Prisma, Video, VideoType } from "generated/prisma/client";
 import { yt } from "./yt.controller";
 import _ from "lodash";
 import { XMLParser } from "fast-xml-parser";
@@ -51,13 +51,18 @@ async function searchYtVideos(yt: Innertube, query: string, limit = 20) {
   return { videoIds, shortIds, creatorIds };
 }
 
+type UpsertMissingCreatorsInput = {
+  yt: Innertube;
+  missingCreatorIds: string[];
+};
+
 /**
  * Partition 2: Upsert any creators not yet present in the DB.
  */
-async function upsertMissingCreators(
-  yt: Innertube,
-  missingCreatorIds: string[]
-): Promise<any[]> {
+async function upsertMissingCreators({
+  yt,
+  missingCreatorIds,
+}: UpsertMissingCreatorsInput): Promise<any[]> {
   if (missingCreatorIds.length === 0) return [];
 
   const channelInfos = await Promise.allSettled(
@@ -103,13 +108,23 @@ async function upsertMissingCreators(
 /**
  * Partition 3: Upsert any videos not yet present in the DB.
  */
-async function upsertMissingVideos(
-  yt: Innertube,
-  missingVideoIds: string[],
-  existingCreatorMap: Map<string, any>,
-  newCreators: any[],
-  type: VideoType = VideoType.VIDEO
-): Promise<any[]> {
+type VideoWithCreator = Prisma.VideoGetPayload<{ include: { creator: true } }>;
+
+type VideoUpsertInput = {
+  yt: Innertube;
+  missingVideoIds: string[];
+  existingCreatorMap?: Map<string, any>;
+  newCreators?: any[];
+  type?: VideoType;
+};
+
+async function upsertMissingVideos({
+  yt,
+  missingVideoIds,
+  existingCreatorMap = new Map(),
+  newCreators = [],
+  type = VideoType.VIDEO,
+}: VideoUpsertInput): Promise<VideoWithCreator[]> {
   if (missingVideoIds.length === 0) return [];
 
   const videoInfos = await Promise.allSettled(
@@ -131,9 +146,10 @@ async function upsertMissingVideos(
           newCreators.find((c) => c.id === videoDetails.channel_id);
 
         if (!creator) {
-          const [fetched] = await upsertMissingCreators(yt, [
-            videoDetails.channel_id,
-          ]);
+          const [fetched] = await upsertMissingCreators({
+            yt,
+            missingCreatorIds: [videoDetails.channel_id],
+          });
           if (!fetched) {
             logger.warn(
               `Failed to fetch creator for channel ${videoDetails.channel_id}`
@@ -245,24 +261,27 @@ export async function searchYtVideosAndSaveToDB(
   const missingShortIds = shortIds.filter((id) => !existingShortMap.has(id));
 
   // Step 3 – upsert missing creators (must run before videos)
-  const newCreators = await upsertMissingCreators(yt, missingCreatorIds);
+  const newCreators = await upsertMissingCreators({
+    yt,
+    missingCreatorIds: missingCreatorIds,
+  });
 
   // Step 4 – upsert missing videos and shorts in parallel
   const [newVideos, newShorts] = await Promise.all([
-    upsertMissingVideos(
+    upsertMissingVideos({
       yt,
       missingVideoIds,
       existingCreatorMap,
       newCreators,
-      VideoType.VIDEO
-    ),
-    upsertMissingVideos(
+      type: VideoType.VIDEO,
+    }),
+    upsertMissingVideos({
       yt,
-      missingShortIds,
+      missingVideoIds: missingShortIds,
       existingCreatorMap,
       newCreators,
-      VideoType.SHORT
-    ),
+      type: VideoType.SHORT,
+    }),
   ]);
 
   // Step 5 – return in original search order
@@ -297,6 +316,7 @@ export async function updateVideo(videoInfo: Video) {
   ) {
     logger.info(`Updating video ${videoInfo.id}`);
     const info = await yt.getInfo(videoInfo.id);
+    // const videoInfo = await yt.getShortsVideoInfo(videoId)
 
     const captions = {};
 
@@ -319,11 +339,67 @@ export async function updateVideo(videoInfo: Video) {
       info.basic_info.short_description || ""
     );
 
-    const nextVideos =
+    let nextVideos =
       info.player_overlays?.end_screen?.results
         ?.filter((v) => v.is(YTNodes.EndScreenVideo))
         .map((v) => v.as(YTNodes.EndScreenVideo))
+        .map((video) => ({
+          id: video.id,
+          title: video.title.toString(),
+          duration: video.duration.seconds,
+          view_count: String(
+            parseViewCount(video.short_view_count.text?.toString() || "0") || 0
+          ),
+          thumbnails: _.uniqBy(
+            video.thumbnails.map((thumbnail) => ({
+              url: thumbnail.url.split("?")[0],
+              width: thumbnail.width,
+              height: thumbnail.height,
+            })),
+            "url"
+          ),
+          creator: {
+            id: video.author.id,
+            name: video.author.name,
+            url: video.author.url,
+          },
+        }))
         .splice(0, 6) || [];
+
+    if (videoInfo.type === VideoType.SHORT) {
+      const nextVideoInfoExtractor = await yt.getShortsVideoInfo(videoInfo.id);
+      const nextVideoPayloads = nextVideoInfoExtractor?.watch_next_feed;
+
+      if (nextVideoPayloads && nextVideoPayloads.length) {
+        const nextVideoDetails =
+          nextVideoPayloads[0].payload.unserializedPrefetchData?.playerResponse
+            .videoDetails;
+
+        const [fetchedNextVideo] = await upsertMissingVideos({
+          yt,
+          missingVideoIds: [nextVideoDetails.videoId],
+          type: VideoType.SHORT,
+        });
+
+        if (!fetchedNextVideo) {
+          logger.warn(`Failed to fetch next video for shorts ${videoInfo.id}`);
+        } else {
+          const nextVideoFormatted = {
+            id: fetchedNextVideo.id,
+            title: fetchedNextVideo.title,
+            duration: fetchedNextVideo.duration,
+            thumbnails: fetchedNextVideo.thumbnails,
+            view_count: fetchedNextVideo.view_count,
+            creator: {
+              id: fetchedNextVideo.creator?.id || "",
+              name: fetchedNextVideo.creator?.title || "",
+              url: fetchedNextVideo.creator?.url || "",
+            },
+          } as (typeof nextVideos)[number];
+          nextVideos = [nextVideoFormatted];
+        }
+      }
+    }
 
     try {
       await prisma.video.update({
@@ -401,12 +477,8 @@ export async function updateVideo(videoInfo: Video) {
                 to: {
                   update: {
                     title: video.title.toString(),
-                    duration: video.duration.seconds,
-                    view_count: String(
-                      parseViewCount(
-                        video.short_view_count.text?.toString() || "0"
-                      ) || 0
-                    ),
+                    duration: video.duration,
+                    view_count: video.view_count,
                     thumbnails: _.uniqBy(
                       video.thumbnails.map((thumbnail) => ({
                         url: thumbnail.url.split("?")[0],
@@ -428,12 +500,8 @@ export async function updateVideo(videoInfo: Video) {
                     create: {
                       id: video.id,
                       title: video.title.toString(),
-                      duration: video.duration.seconds,
-                      view_count: String(
-                        parseViewCount(
-                          video.short_view_count.text?.toString() || "0"
-                        ) || 0
-                      ),
+                      duration: video.duration,
+                      view_count: video.view_count,
                       thumbnails: _.uniqBy(
                         video.thumbnails.map((thumbnail) => ({
                           url: thumbnail.url.split("?")[0],
@@ -445,12 +513,12 @@ export async function updateVideo(videoInfo: Video) {
                       creator: {
                         connectOrCreate: {
                           where: {
-                            id: video.author.id,
+                            id: video.creator.id,
                           },
                           create: {
-                            id: video.author.id,
-                            title: video.author.name,
-                            url: video.author.url,
+                            id: video.creator.id,
+                            title: video.creator.name,
+                            url: video.creator.url,
                           },
                         },
                       },
