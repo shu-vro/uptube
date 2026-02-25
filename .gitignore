@@ -1,3 +1,4 @@
 experimental
 **/.env**
 **/node_modules
+**/*.keystore

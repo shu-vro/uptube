@@ -162,9 +162,15 @@ main()
 
 #### Local Damage Control
 
-```bash
-mkdir -p prisma/migrations/0_init && \
-npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0_init/migration.sql
+1.  ```bash
+    mkdir -p prisma/migrations/0_init && \
+    npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0_init/migration.sql
+    ```
 
-npx prisma migrate resolve --applied 0_init
-```
+2.  ```sql
+    DELETE FROM "_prisma_migrations";
+    ```
+
+3.  ```bash
+    npx prisma migrate resolve --applied 0_init
+    ```

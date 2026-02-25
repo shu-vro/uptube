@@ -1,21 +1,15 @@
 package expo.modules.ytdl
 
+import android.net.Uri
 import android.util.Log
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import expo.modules.kotlin.Promise
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 
 class UptubeYTDLModule : Module() {
-  private val scope = CoroutineScope(Dispatchers.IO)
-  
   @Volatile
   private var isInitialized = false
 
@@ -31,6 +25,7 @@ class UptubeYTDLModule : Module() {
           addOption("--dump-json")
           addOption("--no-check-certificate")
           addOption("--skip-download")
+          addOption("--no-update")  // Suppress version warning
         }
         
         val response = YoutubeDL.getInstance().execute(request)
@@ -41,42 +36,57 @@ class UptubeYTDLModule : Module() {
       }
     }
 
-    // Use AsyncFunction with suspend for proper coroutine support
     AsyncFunction("download") { url: String, format: String, outputPath: String ->
       ensureInitialized()
       
-      withContext(Dispatchers.IO) {
-        try {
-          val outputFile = File(outputPath)
-          outputFile.parentFile?.mkdirs()
-          
-          val request = YoutubeDLRequest(url).apply {
-            addOption("-o", outputPath)
-            if (format.isNotEmpty()) {
-              addOption("-f", format)
-            }
-            addOption("--no-mtime")
-            addOption("--no-check-certificate")
-          }
-          
-          YoutubeDL.getInstance().execute(request) { progress, eta, line ->
-            this@UptubeYTDLModule.sendEvent("onProgress", mapOf(
-              "url" to url,
-              "progress" to progress,
-              "eta" to eta,
-              "line" to line
-            ))
-          }
-          
-          Log.d("UptubeYTDL", "Download completed for $url")
-        } catch (e: Exception) {
-          Log.e("UptubeYTDL", "Download failed for $url", e)
-          this@UptubeYTDLModule.sendEvent("onProgress", mapOf(
-            "url" to url,
-            "error" to (e.message ?: "Unknown download error")
-          ))
-          throw Exception("Download failed: ${e.message ?: "Unknown error"}")
+      try {
+        // Convert file:// URI to filesystem path if needed
+        val actualPath = if (outputPath.startsWith("file://")) {
+          Uri.parse(outputPath).path ?: outputPath.removePrefix("file://")
+        } else {
+          outputPath
         }
+        
+        Log.d("UptubeYTDL", "Download requested - Original path: $outputPath, Actual path: $actualPath")
+        
+        val outputFile = File(actualPath)
+        
+        // Ensure parent directory exists
+        outputFile.parentFile?.let { parentDir ->
+          if (!parentDir.exists()) {
+            val created = parentDir.mkdirs()
+            Log.d("UptubeYTDL", "Created parent directory: $parentDir (success: $created)")
+          }
+        }
+        
+        val request = YoutubeDLRequest(url).apply {
+          addOption("-o", actualPath)
+          if (format.isNotEmpty()) {
+            addOption("-f", format)
+          }
+          addOption("--no-mtime")
+          addOption("--no-check-certificate")
+          addOption("--no-update")  // Suppress version warning
+        }
+        
+        // Execute with progress callback
+        YoutubeDL.getInstance().execute(request) { progress, eta, line ->
+          sendEvent("onProgress", mapOf(
+            "url" to url,
+            "progress" to progress,
+            "eta" to eta,
+            "line" to line
+          ))
+        }
+        
+        Log.d("UptubeYTDL", "Download completed for $url to $actualPath")
+      } catch (e: Exception) {
+        Log.e("UptubeYTDL", "Download failed for $url", e)
+        sendEvent("onProgress", mapOf(
+          "url" to url,
+          "error" to (e.message ?: "Unknown download error")
+        ))
+        throw Exception("Download failed: ${e.message ?: "Unknown error"}")
       }
     }
   }

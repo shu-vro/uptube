@@ -4,6 +4,7 @@ import { Text } from '@/components/ui/text';
 import Sheet from '@/components/ui/sheet';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExampleYTDLUsage } from '@/components/examples/YTDLUsageExample';
+import { ScrollView } from 'react-native-gesture-handler';
 
 export default function Profile() {
   const [open, setOpen] = useState(false);
@@ -11,7 +12,9 @@ export default function Profile() {
   return (
     <SafeAreaView>
       <Text className="mb-4 text-xl font-semibold">Bookmark</Text>
-      <ExampleYTDLUsage videoId="dQw4w9WgXcQ" />
+      <ScrollView>
+        <ExampleYTDLUsage videoId="-S0Kx9DDkIY" />
+      </ScrollView>
     </SafeAreaView>
   );
 }

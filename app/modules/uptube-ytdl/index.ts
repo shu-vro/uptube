@@ -29,10 +29,11 @@ export async function getStreamUrls(videoId: string): Promise<YTDLFormat[] | nul
   const info = await getInfo(`https://www.youtube.com/watch?v=${videoId}`);
   // Find the best format with both audio and video
   const formats = info.formats
-    .filter((f) => f.vcodec !== 'none' && f.acodec !== 'none' && f.url)
+    .filter((f) => f.vcodec && f.vcodec !== 'none' && f.acodec && f.acodec !== 'none' && f.url)
     .sort((a, b) => (b.height || 0) - (a.height || 0));
 
-  return formats;
+  console.log(JSON.stringify(formats, null, 2));
+  return formats || null;
 }
 
 export * from './src/types';

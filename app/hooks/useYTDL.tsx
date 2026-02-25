@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   getInfo,
   download,
@@ -100,8 +100,7 @@ export function useYTDL(): UseYTDLResult {
       setDownloadProgress(null);
 
       try {
-        // Create downloads directory if it doesn't exist
-        // const downloadsURI = FileSystem.
+        // Create downloads directory if it doesn't exist (using legacy API)
         const downloadsDir = `${FileSystem.documentDirectory}downloads/`;
         const dirInfo = await FileSystem.getInfoAsync(downloadsDir);
         if (!dirInfo.exists) {
@@ -161,5 +160,5 @@ export function getQualityLabel(format: YTDLFormat): string {
   if (format.height) {
     return `${format.height}p`;
   }
-  return format.resolution || 'Unknown';
+  return format.resolution || 'Unknown Quality';
 }

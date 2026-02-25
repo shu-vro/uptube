@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "expo start --dev-client -c",
     "android": "expo start -c --android",
+    "android:build:debug": "cd android && ./gradlew assembleDebug && cd ..",
+    "android:build:release": "cd android && ./gradlew assembleRelease && cd ..",
+    "android:install:debug": "cd android && ./gradlew installDebug && cd ..",
     "ios": "expo start -c --ios",
     "web": "expo start -c --web",
     "clean": "rm -rf .expo node_modules"

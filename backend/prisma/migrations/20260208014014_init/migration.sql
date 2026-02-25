@@ -1,7 +1,0 @@
--- AlterTable
-ALTER TABLE "Video" ALTER COLUMN "view_count" SET DEFAULT '0',
-ALTER COLUMN "view_count" SET DATA TYPE TEXT,
-ALTER COLUMN "like_count" SET DEFAULT '0',
-ALTER COLUMN "like_count" SET DATA TYPE TEXT,
-ALTER COLUMN "dislike_count" SET DEFAULT '0',
-ALTER COLUMN "dislike_count" SET DATA TYPE TEXT;

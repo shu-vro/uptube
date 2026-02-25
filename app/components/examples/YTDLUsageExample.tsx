@@ -58,6 +58,8 @@ export function ExampleYTDLUsage({ videoId }: ExampleYTDLUsageProps) {
     }
   };
 
+  // console.log(streamFormats);
+
   return (
     <View style={{ padding: 20 }}>
       {/* Video Info Section */}
@@ -68,12 +70,15 @@ export function ExampleYTDLUsage({ videoId }: ExampleYTDLUsageProps) {
 
       {videoInfo && (
         <View style={{ marginBottom: 20 }}>
-          <Text>Title: {videoInfo.title}</Text>
-          <Text>Uploader: {videoInfo.uploader}</Text>
+          <Text>Title: {videoInfo.title || 'N/A'}</Text>
+          <Text>Uploader: {videoInfo.uploader || 'N/A'}</Text>
           <Text>
-            Duration: {Math.floor(videoInfo.duration / 60)}:{videoInfo.duration % 60}
+            Duration:{' '}
+            {videoInfo.duration
+              ? `${Math.floor(videoInfo.duration / 60)}:${videoInfo.duration % 60}`
+              : 'N/A'}
           </Text>
-          <Text>Views: {videoInfo.view_count?.toLocaleString()}</Text>
+          <Text>Views: {videoInfo.view_count?.toLocaleString() || 'N/A'}</Text>
         </View>
       )}
 
@@ -97,7 +102,7 @@ export function ExampleYTDLUsage({ videoId }: ExampleYTDLUsageProps) {
                   selectedFormat?.format_id === format.format_id ? '#e0e0e0' : '#f5f5f5',
               }}>
               <Text>
-                {getQualityLabel(format)} - {format.extension.toUpperCase()} -{' '}
+                {getQualityLabel(format)} - {format.extension?.toUpperCase() || 'N/A'} -{' '}
                 {formatFileSize(format.filesize)}
               </Text>
               <Button title="Use This Format" onPress={() => setSelectedFormat(format)} />
@@ -107,7 +112,7 @@ export function ExampleYTDLUsage({ videoId }: ExampleYTDLUsageProps) {
       )}
 
       {/* Selected Format Stream URL */}
-      {selectedFormat && (
+      {selectedFormat && selectedFormat.url && (
         <View style={{ marginBottom: 20, padding: 10, backgroundColor: '#e8f5e9' }}>
           <Text style={{ fontWeight: 'bold' }}>Selected Format URL:</Text>
           <Text numberOfLines={2} style={{ fontSize: 10 }}>
@@ -122,11 +127,11 @@ export function ExampleYTDLUsage({ videoId }: ExampleYTDLUsageProps) {
       {/* Download Section */}
       <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 10 }}>Download Video</Text>
 
-      {downloading && (
+      {downloading && downloadProgress && (
         <View style={{ marginBottom: 10 }}>
-          <Text>Downloading: {downloadProgress?.progress.toFixed(1)}%</Text>
-          <Text>ETA: {downloadProgress?.eta}s</Text>
-          <Text style={{ fontSize: 10 }}>{downloadProgress?.line}</Text>
+          <Text>Downloading: {downloadProgress.progress.toFixed(1)}%</Text>
+          <Text>ETA: {downloadProgress.eta}s</Text>
+          <Text style={{ fontSize: 10 }}>{downloadProgress.line}</Text>
         </View>
       )}
 
@@ -153,7 +158,8 @@ export async function getVideoStreamUrl(videoId: string): Promise<string | null>
 
   const formats = await getStreamUrls(videoId);
   if (formats && formats.length > 0) {
-    return formats[0].url; // Best quality URL
+    const bestFormat = formats.find((f) => f.url);
+    return bestFormat?.url || null; // Best quality URL
   }
   return null;
 }
@@ -166,11 +172,18 @@ export async function downloadSpecificQuality(
   quality: '1080' | '720' | '480' | '360'
 ): Promise<string | null> {
   const { download } = require('@/modules/uptube-ytdl');
-  const FileSystem = require('expo-file-system');
+  const FileSystem = require('expo-file-system/legacy');
 
   const url = `https://www.youtube.com/watch?v=${videoId}`;
   const format = `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${quality}]`;
-  const outputPath = `${FileSystem.documentDirectory}video_${quality}p_${Date.now()}.mp4`;
+
+  const downloadsDir = `${FileSystem.documentDirectory}downloads/`;
+  const dirInfo = await FileSystem.getInfoAsync(downloadsDir);
+  if (!dirInfo.exists) {
+    await FileSystem.makeDirectoryAsync(downloadsDir, { intermediates: true });
+  }
+
+  const outputPath = `${downloadsDir}video_${quality}p_${Date.now()}.mp4`;
 
   await download(url, format, outputPath);
   return outputPath;

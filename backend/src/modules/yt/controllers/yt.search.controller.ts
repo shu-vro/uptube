@@ -4,7 +4,7 @@ import { sanitizeYtUrl } from "utils/yt";
 import { parseDurationToSeconds } from "utils/yt/parseDurationToSeconds";
 import { parseViewCount } from "utils/yt/parseViewCount";
 import { differenceInDays } from "utils/time";
-import { Video } from "generated/prisma/client";
+import { Video, VideoType } from "generated/prisma/client";
 import { yt } from "./yt.controller";
 import _ from "lodash";
 import { XMLParser } from "fast-xml-parser";
@@ -16,203 +16,255 @@ const parser = new XMLParser({
   attributeNamePrefix: "$_",
 });
 /**
- * ## Explanation of how this algo works:
- * first, it uses youtubei.js to search for videos matching the query, videos only
- *
- * then, it finds all of those videos and creators in the db. the reason, each search result has to be saved in db.
- *
- * if any creator or video is missing, it fetches them from yt api and upserts them in db.
- *
- * finally, it returns the videos in the same order as search results.
+ * Partition 1: Search YouTube and return ordered video/creator IDs.
  */
-export async function searchYtVideosAndSaveToDB(
-  yt: Innertube,
-  query: string,
-  limit = 20
-) {
-  const videos = await yt.search(query, {
-    type: "video",
-  });
-
-  // console.time("one");
-  // const uploadableVideos = videos.videos.as(YTNodes.Video).splice(0, limit);
+async function searchYtVideos(yt: Innertube, query: string, limit = 20) {
+  const videos = await yt.search(query, { type: "all" });
 
   const uploadableVideos: YTNodes.Video[] = videos.videos
     .filter((e) => e.type === "Video")
     .splice(0, limit) as YTNodes.Video[];
 
-  // return uploadableVideos;
+  const shortIds = (
+    (videos?.results ?? []).flatMap((r) =>
+      r?.type === "GridShelfView"
+        ? (r as YTNodes.GridShelfView)?.contents ?? []
+        : []
+    ) as YTNodes.ShortsLockupView[]
+  )
+    .map((v) => v?.on_tap_endpoint?.payload?.videoId)
+    .filter(Boolean);
+
   const videoIds = uploadableVideos.map((v) => v.video_id);
   const creatorIds = Array.from(
     new Set(
       uploadableVideos.map((v) => v.author?.id).filter(Boolean) as string[]
     )
   );
-  // console.timeEnd("one");
 
-  // console.time("two");
-  // Check what already exists in DB
-  const [existingVideos, existingCreators] = await Promise.all([
+  return { videoIds, shortIds, creatorIds };
+}
+
+/**
+ * Partition 2: Upsert any creators not yet present in the DB.
+ */
+async function upsertMissingCreators(
+  yt: Innertube,
+  missingCreatorIds: string[]
+): Promise<any[]> {
+  if (missingCreatorIds.length === 0) return [];
+
+  const channelInfos = await Promise.allSettled(
+    missingCreatorIds.map((id) => yt.getChannel(id))
+  );
+
+  const upsertOps = channelInfos.flatMap((info) => {
+    if (info.status !== "fulfilled") return [];
+    const md = info.value.metadata;
+    const avatars = _.uniqBy(
+      (md.thumbnail || []).map((t) => ({
+        url: t.url.split("?")[0],
+        width: parseInt(t.width?.toString() ?? "0", 10),
+        height: parseInt(t.height?.toString() ?? "0", 10),
+      })),
+      "url"
+    );
+    return [
+      prisma.creator.upsert({
+        where: { id: md.external_id },
+        update: {
+          title: md.title,
+          description: md.description,
+          url: md.url,
+          vanity_channel_url: md.vanity_channel_url,
+          avatars,
+        },
+        create: {
+          id: md.external_id,
+          title: md.title || "Unknown Title",
+          description: md.description || "No Description",
+          url: md.url || `https://www.youtube.com/channel/${md.external_id}`,
+          vanity_channel_url: md.vanity_channel_url || null,
+          avatars,
+        },
+      }),
+    ];
+  });
+
+  return prisma.$transaction(upsertOps);
+}
+
+/**
+ * Partition 3: Upsert any videos not yet present in the DB.
+ */
+async function upsertMissingVideos(
+  yt: Innertube,
+  missingVideoIds: string[],
+  existingCreatorMap: Map<string, any>,
+  newCreators: any[],
+  type: VideoType = VideoType.VIDEO
+): Promise<any[]> {
+  if (missingVideoIds.length === 0) return [];
+
+  const videoInfos = await Promise.allSettled(
+    missingVideoIds.map(async (id) => {
+      const videoId = sanitizeYtUrl(id);
+      if (!videoId) return null;
+
+      try {
+        const videoInfo = await yt.actions.execute("/player", {
+          videoId,
+          client: "YTMUSIC",
+          parse: true,
+        });
+        const videoDetails = videoInfo.video_details;
+        if (!videoDetails) return null;
+
+        let creator =
+          existingCreatorMap.get(videoDetails.channel_id) ||
+          newCreators.find((c) => c.id === videoDetails.channel_id);
+
+        if (!creator) {
+          const [fetched] = await upsertMissingCreators(yt, [
+            videoDetails.channel_id,
+          ]);
+          if (!fetched) {
+            logger.warn(
+              `Failed to fetch creator for channel ${videoDetails.channel_id}`
+            );
+            return null;
+          }
+          creator = fetched;
+        }
+
+        return {
+          where: { id: videoDetails.id },
+          update: {
+            title: videoDetails.title,
+            short_description: videoDetails?.short_description,
+            duration: videoDetails.duration,
+            view_count: String(videoDetails.view_count || 0),
+            type,
+            thumbnails: _.uniqBy(
+              (videoDetails.thumbnail || []).map((t) => ({
+                url: t.url.split("?")[0],
+                width: t.width || 0,
+                height: t.height || 0,
+              })),
+              "url"
+            ),
+          },
+          create: {
+            id: videoDetails.id,
+            title: videoDetails.title || "Unknown Title",
+            channel_id: creator.id,
+            short_description: videoDetails?.short_description,
+            duration: videoDetails.duration || 0,
+            view_count: String(videoDetails.view_count || 0),
+            type,
+            thumbnails: _.uniqBy(
+              (videoDetails.thumbnail || []).map((t) => ({
+                url: t.url.split("?")[0],
+                width: t.width || 0,
+                height: t.height || 0,
+              })),
+              "url"
+            ),
+          },
+          include: { creator: true },
+        };
+      } catch (error: any) {
+        logger.warn(`Failed to fetch video ${videoId}:`, error);
+        return null;
+      }
+    })
+  );
+
+  return prisma.$transaction(
+    videoInfos.flatMap((info) => {
+      if (info && info.status === "fulfilled" && info.value !== null) {
+        return [prisma.video.upsert(info.value)];
+      }
+      return [];
+    })
+  );
+}
+
+/**
+ * Orchestrator: search YouTube, upsert missing creators & videos, return results
+ * in original search order.
+ *
+ * ## Explanation of how this algo works:
+ * 1. searchYtVideos        – fetch search results and extract IDs
+ * 2. DB lookup             – find what already exists
+ * 3. upsertMissingCreators – fetch + save any new creators
+ * 4. upsertMissingVideos   – fetch + save any new videos (needs creator map)
+ * 5. Return videos ordered by original search rank
+ */
+export async function searchYtVideosAndSaveToDB(
+  yt: Innertube,
+  query: string,
+  limit = 20
+) {
+  // Step 1 – search
+  const { videoIds, creatorIds, shortIds } = await searchYtVideos(
+    yt,
+    query,
+    limit
+  );
+
+  // Step 2 – check what already exists in DB
+  const [existingVideos, existingShorts, existingCreators] = await Promise.all([
     prisma.video.findMany({
-      where: { id: { in: videoIds } },
+      where: { id: { in: videoIds }, type: VideoType.VIDEO },
+      include: { creator: true },
+    }),
+    prisma.video.findMany({
+      where: { id: { in: shortIds }, type: VideoType.SHORT },
       include: { creator: true },
     }),
     prisma.creator.findMany({
       where: { id: { in: creatorIds } },
     }),
   ]);
-  // console.timeEnd("two");
 
   const existingVideoMap = new Map(existingVideos.map((v) => [v.id, v]));
+  const existingShortMap = new Map(existingShorts.map((v) => [v.id, v]));
   const existingCreatorMap = new Map(existingCreators.map((c) => [c.id, c]));
 
-  // Find missing creators and videos
   const missingCreatorIds = creatorIds.filter(
     (id) => !existingCreatorMap.has(id)
   );
   const missingVideoIds = videoIds.filter((id) => !existingVideoMap.has(id));
+  const missingShortIds = shortIds.filter((id) => !existingShortMap.has(id));
 
-  let newCreators: any[] = [];
-  let newVideos: any[] = [];
+  // Step 3 – upsert missing creators (must run before videos)
+  const newCreators = await upsertMissingCreators(yt, missingCreatorIds);
 
-  // For creators
-  if (missingCreatorIds.length > 0) {
-    // console.time("three");
-    const channelInfos = await Promise.allSettled(
-      missingCreatorIds.map((id) => yt.getChannel(id))
-    );
-    // console.timeEnd("three");
+  // Step 4 – upsert missing videos and shorts in parallel
+  const [newVideos, newShorts] = await Promise.all([
+    upsertMissingVideos(yt, missingVideoIds, existingCreatorMap, newCreators, VideoType.VIDEO),
+    upsertMissingVideos(yt, missingShortIds, existingCreatorMap, newCreators, VideoType.SHORT),
+  ]);
 
-    // console.time("four");
-    // Upsert only missing creators
-    const upsertOps = channelInfos.flatMap((info) => {
-      if (info.status !== "fulfilled") return [];
-      const md = info.value.metadata;
-      const avatars = _.uniqBy(
-        (md.thumbnail || []).map((t) => ({
-          url: t.url.split("?")[0],
-          width: parseInt(t.width?.toString() ?? "0", 10),
-          height: parseInt(t.height?.toString() ?? "0", 10),
-        })),
-        "url"
-      );
-      return [
-        prisma.creator.upsert({
-          where: { id: md.external_id },
-          update: {
-            title: md.title,
-            description: md.description,
-            url: md.url,
-            vanity_channel_url: md.vanity_channel_url,
-            avatars,
-          },
-          create: {
-            id: md.external_id,
-            title: md.title || "Unknown Title",
-            description: md.description || "No Description",
-            url: md.url || `https://www.youtube.com/channel/${md.external_id}`,
-            vanity_channel_url: md.vanity_channel_url || null,
-            avatars,
-          },
-        }),
-      ];
-    });
-    // console.timeEnd("four");
-
-    // console.time("five");
-    newCreators = await prisma.$transaction(upsertOps);
-    // console.timeEnd("five");
-  }
-
-  // Fetch missing videos
-  if (missingVideoIds.length > 0) {
-    // console.time("seven");
-    const videoInfos = await Promise.allSettled(
-      missingVideoIds.map(async (id) => {
-        const videoId = sanitizeYtUrl(id);
-        if (!videoId) return null;
-
-        try {
-          const videoInfo = await yt.actions.execute("/player", {
-            videoId,
-            client: "YTMUSIC",
-            parse: true,
-          });
-          const videoDetails = videoInfo.video_details;
-          if (!videoDetails) return null;
-
-          // Look up creator from both existing and new creators
-          const creator =
-            existingCreatorMap.get(videoDetails.channel_id) ||
-            newCreators.find((c) => c.id === videoDetails.channel_id);
-
-          if (!creator) return null;
-
-          return {
-            where: { id: videoDetails.id },
-            update: {
-              title: videoDetails.title,
-              short_description: videoDetails?.short_description,
-              duration: videoDetails.duration,
-              view_count: String(videoDetails.view_count || 0),
-              thumbnails: _.uniqBy(
-                (videoDetails.thumbnail || []).map((t) => ({
-                  url: t.url.split("?")[0],
-                  width: t.width || 0,
-                  height: t.height || 0,
-                })),
-                "url"
-              ),
-            },
-            create: {
-              id: videoDetails.id,
-              title: videoDetails.title || "Unknown Title",
-              channel_id: creator ? creator.id : "unknown",
-              short_description: videoDetails?.short_description,
-              duration: videoDetails.duration || 0,
-              view_count: String(videoDetails.view_count || 0),
-              thumbnails: _.uniqBy(
-                (videoDetails.thumbnail || []).map((t) => ({
-                  url: t.url.split("?")[0],
-                  width: t.width || 0,
-                  height: t.height || 0,
-                })),
-                "url"
-              ),
-            },
-            include: { creator: true },
-          };
-        } catch (error: any) {
-          logger.warn(`Failed to fetch video ${videoId}:`, error);
-          return null;
-        }
-      })
-    );
-    // console.timeEnd("seven");
-
-    // console.time("eight");
-    // Upsert only new videos
-    newVideos = await prisma.$transaction(
-      videoInfos.flatMap((info) => {
-        if (info && info.status === "fulfilled" && info.value !== null) {
-          return [prisma.video.upsert(info.value)];
-        }
-        return [];
-      })
-    );
-    // console.timeEnd("eight");
-  }
-
+  // Step 5 – return in original search order
   const allVideosMap = new Map([
     ...existingVideos.map((v) => [v.id, v] as const),
     ...newVideos.map((v) => [v.id, v] as const),
   ]);
+  const allShortsMap = new Map([
+    ...existingShorts.map((v) => [v.id, v] as const),
+    ...newShorts.map((v) => [v.id, v] as const),
+  ]);
 
-  const orderedResults = videoIds
-    .map((id) => allVideosMap.get(id))
-    .filter((v): v is NonNullable<typeof v> => v !== undefined);
-
-  return orderedResults;
+  return {
+    videos: videoIds
+      .map((id) => allVideosMap.get(id))
+      .filter((v): v is NonNullable<typeof v> => v !== undefined),
+    shorts: shortIds
+      .map((id) => allShortsMap.get(id))
+      .filter((v): v is NonNullable<typeof v> => v !== undefined),
+  };
 }
 
 export async function updateVideo(videoInfo: Video) {

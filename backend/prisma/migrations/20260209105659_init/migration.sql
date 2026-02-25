@@ -1,3 +1,0 @@
--- AlterTable
-ALTER TABLE "Chapter" ALTER COLUMN "start" DROP DEFAULT,
-ALTER COLUMN "end" DROP DEFAULT;

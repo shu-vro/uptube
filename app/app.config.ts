@@ -72,7 +72,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         android: {
           compileSdkVersion: 35,
           targetSdkVersion: 35,
-          buildToolsVersion: '34.0.0',
+          // buildToolsVersion: '34.0.0',
+          buildToolsVersion: '35.0.0', // Update to 35.0.0 (removes warning)
+          ndkVersion: '27.1.12297006', // Add this
         },
         ios: {
           deploymentTarget: '15.2',

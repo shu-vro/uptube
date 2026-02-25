@@ -248,31 +248,37 @@ export const do_something = asyncHandler(async (req: Request) => {
   //   itag: 303,
   // });
 
-  const videoId = sanitizeYtUrl("RQYxIFHcMrY");
+  const videoId = sanitizeYtUrl("IfrJfGowmj0");
   if (!videoId) {
     return req._error("Invalid video ID");
   }
 
-  // const videoInfo = await yt.actions.execute("/player", {
-  //   videoId,
-  //   contentCheckOk: true,
-  //   racyCheckOk: true,
-  //   playbackContext: {
-  //     adPlaybackContext: {
-  //       pyv: true,
-  //     },
-  //     contentPlaybackContext: {
-  //       signatureTimestamp: yt.session.player?.signature_timestamp,
-  //     },
-  //   },
+  // const videos = await yt.search("Typescript", {
+  //   type: "all",
   // });
 
-  const videoInfo = await yt.getInfo(videoId);
+  // const uploadableShorts = (
+  //   (videos?.results ?? []).flatMap((r) =>
+  //     r?.type === "GridShelfView"
+  //       ? (r as YTNodes.GridShelfView)?.contents ?? []
+  //       : []
+  //   ) as YTNodes.ShortsLockupView[]
+  // )
+  //   .map((v) => v?.on_tap_endpoint?.payload?.videoId)
+  //   .filter(Boolean);
+
+  const videoInfo = await yt.actions.execute("/player", {
+    videoId,
+    client: "YTMUSIC",
+    parse: true,
+  });
+
+  // const videoInfo = await yt.getInfo(videoId);
   // const videoInfo = await yt.search("typescript", {
   //   type: "all",
   // });
 
-  // Bun.write(Bun.file("yt-video-info.json"), JSON.stringify(videoInfo, null, 2));
+  Bun.write(Bun.file("yt-video-info.json"), JSON.stringify(videoInfo, null, 2));
 
   // const videoInfo = await yt.getHomeFeed();
   // const dld = await yt.download("m6qieXZsgwo", {

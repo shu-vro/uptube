@@ -19,6 +19,11 @@ model User {
   extra     Json?    @default("{}")
 }
 
+enum VideoType {
+  VIDEO
+  SHORT
+}
+
 model Video {
   id                  String      @id @default(cuid())
   title               String
@@ -26,7 +31,7 @@ model Video {
   short_description   String?
   duration            Int         @default(0)
   view_count          String      @default("0")
-  type                String      @default("video")
+  type                VideoType   @default(VIDEO)
   keywords            String[]    @default([])
   like_count          String      @default("0")
   category            String?
@@ -44,16 +49,23 @@ model Video {
   creator             Creator     @relation(fields: [channel_id], references: [id])
   nextEdges           VideoNext[] @relation("FromVideo")
   prevEdges           VideoNext[] @relation("ToVideo")
+
+  @@index([channel_id])
+  @@index([type])
+  @@index([createdAt])
+  @@index([channel_id, type])
 }
 
 model Chapter {
-  id      String  @id @default(cuid())
-  title   String  @default("")
-  start   Int
-  end     Int
-  extra   Json?   @default("{}")
-  video   Video?  @relation(fields: [videoId], references: [id])
-  videoId String?
+  id       String  @id @default(cuid())
+  title    String  @default("")
+  start    Int
+  end      Int
+  extra    Json?   @default("{}")
+  video    Video?  @relation(fields: [video_id], references: [id])
+  video_id String?
+
+  @@index([video_id])
 }
 
 model VideoNext {
@@ -78,6 +90,8 @@ model Caption {
   language_code    String?
   extra            Json?   @default("{}")
   video            Video?  @relation(fields: [video_id], references: [id])
+
+  @@index([video_id])
 }
 
 model Creator {
