@@ -26,22 +26,16 @@ export function BottomSheetContainer({
   // Calculate available height
   // If in fullscreen, headerHeight is 0, videoHeight is usually huge,
   // but typically this sheet only shows when NOT fullscreen.
-  const availableHeight =
-    SCREEN_HEIGHT - (StatusBar.currentHeight || 0) - headerHeight - videoHeight;
+  // - (StatusBar.currentHeight || 0) -
+  const availableHeight = SCREEN_HEIGHT - headerHeight - videoHeight;
 
   // Start off-screen (translationY = availableHeight)
-  // We want to animate to 0
   const slideAnim = useRef(new Animated.Value(availableHeight)).current;
 
   useEffect(() => {
-    // Update the initial value if dimensions change and it's closed
-    if (!isOpen) {
-      slideAnim.setValue(availableHeight);
-    }
-  }, [availableHeight, isOpen]);
-
-  useEffect(() => {
     if (isOpen) {
+      // Set to off-screen position FIRST, then animate in
+      slideAnim.setValue(availableHeight);
       Animated.spring(slideAnim, {
         toValue: 0,
         useNativeDriver: true,
@@ -57,7 +51,7 @@ export function BottomSheetContainer({
         useNativeDriver: true,
       }).start();
     }
-  }, [isOpen, availableHeight]);
+  }, [isOpen, availableHeight, slideAnim]);
 
   // If not open and animation finished (roughly), we could return null.
   // But purely CSS/transform hiding is smoother.
@@ -69,7 +63,7 @@ export function BottomSheetContainer({
         styles.container,
         {
           height: availableHeight,
-          backgroundColor: colors.background, // or colors.card
+          backgroundColor: colors.border, // or colors.card
           transform: [{ translateY: slideAnim }],
         },
       ]}

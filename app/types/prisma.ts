@@ -36,7 +36,7 @@ export interface Video {
   short_description: string | null;
   duration: number;
   view_count: string;
-  type: string;
+  type: 'VIDEO' | 'SHORT';
   keywords: string[];
   like_count: string;
   dislike_count: string;

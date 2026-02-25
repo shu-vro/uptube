@@ -19,28 +19,34 @@ const parser = new XMLParser({
  * Partition 1: Search YouTube and return ordered video/creator IDs.
  */
 async function searchYtVideos(yt: Innertube, query: string, limit = 20) {
-  const videos = await yt.search(query, { type: "all" });
+  let shortIds: string[] = [];
+  let videoIds: string[] = [];
+  let creatorIds: string[] = [];
 
-  const uploadableVideos: YTNodes.Video[] = videos.videos
-    .filter((e) => e.type === "Video")
-    .splice(0, limit) as YTNodes.Video[];
+  try {
+    const videos = await yt.search(query, { type: "all" });
 
-  const shortIds = (
-    (videos?.results ?? []).flatMap((r) =>
-      r?.type === "GridShelfView"
-        ? (r as YTNodes.GridShelfView)?.contents ?? []
-        : []
-    ) as YTNodes.ShortsLockupView[]
-  )
-    .map((v) => v?.on_tap_endpoint?.payload?.videoId)
-    .filter(Boolean);
+    const uploadableVideos: YTNodes.Video[] = videos.videos
+      .filter((e) => e.type === "Video")
+      .splice(0, limit) as YTNodes.Video[];
 
-  const videoIds = uploadableVideos.map((v) => v.video_id);
-  const creatorIds = Array.from(
-    new Set(
+    shortIds = _.uniq(
+      (
+        (videos?.results ?? []).flatMap((r) =>
+          r?.type === "GridShelfView"
+            ? (r as YTNodes.GridShelfView)?.contents ?? []
+            : []
+        ) as YTNodes.ShortsLockupView[]
+      )
+        .map((v) => v?.on_tap_endpoint?.payload?.videoId)
+        .filter(Boolean)
+    );
+
+    videoIds = _.uniq(uploadableVideos.map((v) => v.video_id));
+    creatorIds = _.uniq(
       uploadableVideos.map((v) => v.author?.id).filter(Boolean) as string[]
-    )
-  );
+    );
+  } catch (error) {}
 
   return { videoIds, shortIds, creatorIds };
 }
@@ -243,8 +249,20 @@ export async function searchYtVideosAndSaveToDB(
 
   // Step 4 – upsert missing videos and shorts in parallel
   const [newVideos, newShorts] = await Promise.all([
-    upsertMissingVideos(yt, missingVideoIds, existingCreatorMap, newCreators, VideoType.VIDEO),
-    upsertMissingVideos(yt, missingShortIds, existingCreatorMap, newCreators, VideoType.SHORT),
+    upsertMissingVideos(
+      yt,
+      missingVideoIds,
+      existingCreatorMap,
+      newCreators,
+      VideoType.VIDEO
+    ),
+    upsertMissingVideos(
+      yt,
+      missingShortIds,
+      existingCreatorMap,
+      newCreators,
+      VideoType.SHORT
+    ),
   ]);
 
   // Step 5 – return in original search order
@@ -274,7 +292,8 @@ export async function updateVideo(videoInfo: Video) {
       videoInfo?.last_manual_fetch.toString() || Date.now().toString()
     ) > 7 ||
     Math.abs(videoInfo.updatedAt.getTime() - videoInfo.createdAt.getTime()) <
-      1000
+      1000 ||
+    videoInfo.available_qualities.length === 0
   ) {
     logger.info(`Updating video ${videoInfo.id}`);
     const info = await yt.getInfo(videoInfo.id);
@@ -299,8 +318,6 @@ export async function updateVideo(videoInfo: Video) {
     const chapters = parseYouTubeChapters(
       info.basic_info.short_description || ""
     );
-
-    console.log("chapters", chapters);
 
     const nextVideos =
       info.player_overlays?.end_screen?.results

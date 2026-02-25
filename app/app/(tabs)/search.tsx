@@ -7,6 +7,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,11 +23,12 @@ import { Text } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Lucide } from '@react-native-vector-icons/lucide';
 import useDebounce from '@/hooks/useDebounce';
-import { LoadingVideo, SearchResultVideo } from '@/components/specific/Search';
+import { LoadingVideo, SearchResultVideo, ShortsSection } from '@/components/specific/Search';
 import { get } from '@/lib/utils/fetch';
 import { ToggleGroup, ToggleGroupIcon, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { List, Grid2x2, Underline } from 'lucide-react-native';
 import { useAsyncItem } from '@/lib/utils/async-storage';
+import { Video } from '@/types/prisma';
 
 // const dummySearchResults = [
 //   {
@@ -94,7 +96,8 @@ export default function Search() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchVideoResults, setSearchVideoResults] = useState<Video[]>([]);
+  const [searchShortsResults, setSearchShortsResults] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -141,7 +144,8 @@ export default function Search() {
     if (searchQuery.length === 0) {
       setIsFocused(false);
       setShowSuggestions(false);
-      setSearchResults([]);
+      setSearchVideoResults([]);
+      setSearchShortsResults([]);
       setHasSearched(false);
 
       searchBarPosition.value = withSpring(screenHeight / 3, {
@@ -187,11 +191,13 @@ export default function Search() {
   useEffect(() => {
     if (searchQuery.length > 0 && isFocused && !hasSearched) {
       setShowSuggestions(true);
-      setSearchResults([]);
+      setSearchVideoResults([]);
+      setSearchShortsResults([]);
       setIsLoading(false);
     } else if (searchQuery.length === 0) {
       setShowSuggestions(false);
-      setSearchResults([]);
+      setSearchVideoResults([]);
+      setSearchShortsResults([]);
       setIsLoading(false);
       setHasSearched(false);
       setFilteredSuggestions([]);
@@ -208,10 +214,12 @@ export default function Search() {
 
     try {
       const results = await searchAPI(query.trim());
-      setSearchResults(results as any);
+      setSearchVideoResults(results.videos as any);
+      setSearchShortsResults(results.shorts as any);
     } catch (error) {
       console.error('Search failed:', error);
-      setSearchResults([]);
+      setSearchVideoResults([]);
+      setSearchShortsResults([]);
     } finally {
       setIsLoading(false);
     }
@@ -306,7 +314,8 @@ export default function Search() {
                 onPress={() => {
                   setSearchQuery('');
                   setShowSuggestions(isFocused);
-                  setSearchResults([]);
+                  setSearchVideoResults([]);
+                  setSearchShortsResults([]);
                   setHasSearched(false);
                   setFilteredSuggestions([]);
                 }}
@@ -381,54 +390,79 @@ export default function Search() {
             />
           )}
 
-          {searchResults.length > 0 && !isLoading && (
-            <>
-              {/* list or column */}
-              <View className="mx-4 flex-row">
-                <View className="grow"></View>
-                <ToggleGroup
-                  value={viewMode}
-                  onValueChange={(val) => {
-                    if (val) {
-                      setViewMode(val as 'list' | 'grid');
-                    }
-                  }}
-                  variant="outline"
-                  type="single">
-                  <ToggleGroupItem isFirst value="list" aria-label="Toggle list">
-                    <ToggleGroupIcon as={List} />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem isLast value="grid" aria-label="Toggle grid">
-                    <ToggleGroupIcon as={Grid2x2} />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </View>
-              {/* the actual list */}
-              <FlatList
-                data={searchResults}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <>
-                    <SearchResultVideo item={item} variant={viewMode!} />
-                  </>
-                )}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingTop: 8, paddingBottom: 100, paddingHorizontal: 16 }}
-              />
-            </>
+          {(searchVideoResults.length > 0 || searchShortsResults.length > 0) && !isLoading && (
+            <FlatList
+              data={searchVideoResults}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => <SearchResultVideo item={item} variant={viewMode!} />}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingTop: 0,
+                paddingBottom: 100,
+                paddingHorizontal: 16,
+              }}
+              ListHeaderComponent={
+                <>
+                  {/* Shorts Section */}
+                  {searchShortsResults.length > 0 && (
+                    <View className="-mx-4 mb-4">
+                      <ShortsSection shorts={searchShortsResults} />
+                    </View>
+                  )}
+
+                  {/* Videos Section Header */}
+                  {searchVideoResults.length > 0 && (
+                    <View className="mb-3 flex-row items-center">
+                      {searchShortsResults.length > 0 && (
+                        <>
+                          <Lucide
+                            name="youtube"
+                            size={22}
+                            color={THEME[colorScheme ?? 'light'].primary}
+                            style={{ marginRight: 8 }}
+                          />
+                          <Text className="text-lg font-bold">Videos</Text>
+                        </>
+                      )}
+                      <View className="grow"></View>
+                      <ToggleGroup
+                        value={viewMode}
+                        onValueChange={(val) => {
+                          if (val) {
+                            setViewMode(val as 'list' | 'grid');
+                          }
+                        }}
+                        variant="outline"
+                        type="single">
+                        <ToggleGroupItem isFirst value="list" aria-label="Toggle list">
+                          <ToggleGroupIcon as={List} />
+                        </ToggleGroupItem>
+                        <ToggleGroupItem isLast value="grid" aria-label="Toggle grid">
+                          <ToggleGroupIcon as={Grid2x2} />
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </View>
+                  )}
+                </>
+              }
+            />
           )}
 
-          {searchResults.length === 0 && !isLoading && !showSuggestions && hasSearched && (
-            <View className="flex-1 items-center justify-center px-8">
-              <Lucide name="search" size={48} color={theme.mutedForeground} />
-              <Text variant="large" className="mb-2 mt-4 text-center">
-                No results found
-              </Text>
-              <Text variant="muted" className="text-center leading-5">
-                Try adjusting your search terms or browse trending content instead
-              </Text>
-            </View>
-          )}
+          {searchVideoResults.length === 0 &&
+            searchShortsResults.length === 0 &&
+            !isLoading &&
+            !showSuggestions &&
+            hasSearched && (
+              <View className="flex-1 items-center justify-center px-8">
+                <Lucide name="search" size={48} color={theme.mutedForeground} />
+                <Text variant="large" className="mb-2 mt-4 text-center">
+                  No results found
+                </Text>
+                <Text variant="muted" className="text-center leading-5">
+                  Try adjusting your search terms or browse trending content instead
+                </Text>
+              </View>
+            )}
         </Animated.View>
       </KeyboardAvoidingView>
     </SafeAreaView>

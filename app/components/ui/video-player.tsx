@@ -254,7 +254,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       handleSeek(value);
     };
 
-    const togglePlayPause = () => {
+    const togglePlayPause = useCallback(() => {
       if (ended) {
         videoRef.current?.seek(0);
         setEnded(false);
@@ -264,8 +264,22 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       }
       const willBePaused = !paused;
       setPaused(willBePaused);
-      hideControls();
-    };
+      if (willBePaused) {
+        // Pausing: keep controls visible with no auto-hide timeout
+        setControlsVisible(true);
+        controlsOpacity.value = withTiming(1, { duration: 200 });
+        if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      } else {
+        // Resuming: show controls then start auto-hide timer
+        setControlsVisible(true);
+        controlsOpacity.value = withTiming(1, { duration: 200 });
+        if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+        controlsTimeoutRef.current = setTimeout(() => {
+          setControlsVisible(false);
+          controlsOpacity.value = withTiming(0, { duration: 200 });
+        }, 3000);
+      }
+    }, [paused, ended, showControls, controlsOpacity]);
 
     const enterPip = useCallback(() => {
       videoRef.current?.enterPictureInPicture();
@@ -357,6 +371,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       });
 
     const volumeBase = useSharedValue(1.0);
+    const gestureStartVolume = useSharedValue(1.0);
+    const isVolumeGesture = useSharedValue(false);
 
     useEffect(() => {
       VolumeManager.getVolume()
@@ -391,37 +407,44 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     const panVolume = Gesture.Pan()
       .onStart((e) => {
         if (e.x > SCREEN_WIDTH * 0.7) {
+          isVolumeGesture.value = true;
+          // Capture baseline at gesture start — immune to listener updates during drag
+          gestureStartVolume.value = volumeBase.value;
           volumeOpacity.value = withTiming(1, { duration: 100 });
+        } else {
+          isVolumeGesture.value = false;
         }
       })
       .onUpdate((e) => {
-        if (e.x > SCREEN_WIDTH * 0.7) {
-          const sensitivity = videoSize?.height || 300;
-          const newVolume = volumeBase.value - e.translationY / sensitivity;
-          const clampedVolume = Math.max(0, Math.min(1, newVolume));
+        if (!isVolumeGesture.value) return;
+        const sensitivity = videoSize?.height || 300;
+        const newVolume = gestureStartVolume.value - e.translationY / sensitivity;
+        const clampedVolume = Math.max(0, Math.min(1, newVolume));
 
-          // Update UI immediately for smooth feedback
-          runOnJS(setSystemVolume)(clampedVolume);
+        // Update UI immediately for smooth feedback
+        runOnJS(setSystemVolume)(clampedVolume);
 
-          // Throttle actual system volume changes for smoother performance
-          if (volumeThrottleRef.current) {
-            clearTimeout(volumeThrottleRef.current);
-          }
-          volumeThrottleRef.current = setTimeout(() => {
-            runOnJS(applySystemVolume)(clampedVolume);
-          }, 50);
+        // Throttle actual system volume changes for smoother performance
+        if (volumeThrottleRef.current) {
+          clearTimeout(volumeThrottleRef.current);
         }
+        volumeThrottleRef.current = setTimeout(() => {
+          runOnJS(applySystemVolume)(clampedVolume);
+        }, 50);
       })
       .onFinalize((e) => {
         if (volumeThrottleRef.current) {
           clearTimeout(volumeThrottleRef.current);
         }
-        const sensitivity = videoSize?.height || 300;
-        const newVolume = volumeBase.value - e.translationY / sensitivity;
-        const clampedVolume = Math.max(0, Math.min(1, newVolume));
         volumeOpacity.value = withTiming(0, { duration: 500 });
-        runOnJS(applySystemVolume)(clampedVolume);
+        if (!isVolumeGesture.value) return;
+        isVolumeGesture.value = false;
+        // Use the same gestureStartVolume baseline so the final value matches what the UI showed
+        const sensitivity = videoSize?.height || 300;
+        const newVolume = gestureStartVolume.value - e.translationY / sensitivity;
+        const clampedVolume = Math.max(0, Math.min(1, newVolume));
         volumeBase.value = clampedVolume;
+        runOnJS(applySystemVolume)(clampedVolume);
       });
 
     const taps = Gesture.Exclusive(doubleTap, singleTap);

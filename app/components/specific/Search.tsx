@@ -2,7 +2,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { THEME } from '@/lib/theme';
 import { useColorScheme } from 'nativewind';
-import { View, Image, StyleSheet, ImageBackground, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Image,
+  StyleSheet,
+  ImageBackground,
+  TouchableOpacity,
+  FlatList,
+  Dimensions,
+} from 'react-native';
 import { Lucide } from '@react-native-vector-icons/lucide';
 import { Skeleton } from '../ui/skeleton';
 import { Video } from '@/types/prisma';
@@ -136,6 +144,79 @@ export const SearchResultVideo = ({
   variant?: 'list' | 'grid';
 }) => {
   return variant === 'list' ? <VideoCardList item={item} /> : <VideoCardGrid item={item} />;
+};
+
+export const ShortCard = ({ item }: { item: Video }) => {
+  const router = useRouter();
+  const { colorScheme } = useColorScheme();
+  const theme = THEME[colorScheme ?? 'light'];
+  const { width: screenWidth } = Dimensions.get('window');
+  const cardWidth = screenWidth * 0.45;
+  const cardHeight = cardWidth * (16 / 9);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={() => {
+        router.push(`/video/${item.id}`);
+      }}
+      style={{ width: cardWidth, marginRight: 12 }}>
+      <View style={{ height: cardHeight }} className="overflow-hidden rounded-xl bg-muted">
+        <ImageBackground
+          source={{
+            uri: item.thumbnails?.sort((a, b) => (b?.width || 0) - (a?.width || 0))[0]?.url,
+          }}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover">
+          <View className="absolute bottom-2 left-2 right-2">
+            <View className="mb-1 self-start rounded-sm bg-background/70 px-1.5 py-0.5">
+              <Text variant="muted" className="text-xs font-semibold">
+                {numberToTime(item.duration || 0)}
+              </Text>
+            </View>
+          </View>
+        </ImageBackground>
+      </View>
+      <View className="mt-2">
+        <Text className="text-sm font-semibold leading-4" numberOfLines={2}>
+          {item.title}
+        </Text>
+        <Text variant="muted" className="mt-1 text-xs" numberOfLines={1}>
+          {miniNumber(Number(item.view_count) || 0)} views
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+export const ShortsSection = ({ shorts }: { shorts: Video[] }) => {
+  if (!shorts || shorts.length === 0) return null;
+  const { colorScheme } = useColorScheme();
+
+  return (
+    <View className="mb-6">
+      <View className="mb-3 flex-row items-center px-4">
+        <Lucide
+          name="zap"
+          size={20}
+          color={THEME[colorScheme ?? 'light'].primary}
+          style={{ marginRight: 8 }}
+        />
+        <Text className="text-lg font-bold">Shorts</Text>
+      </View>
+      <FlatList
+        data={shorts}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        renderItem={({ item }) => <ShortCard item={item} />}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingHorizontal: 16 }}
+        snapToInterval={Dimensions.get('window').width * 0.45 + 12}
+        decelerationRate="fast"
+        snapToAlignment="start"
+      />
+    </View>
+  );
 };
 
 export const LoadingVideo = ({ index }: { index: number }) => (

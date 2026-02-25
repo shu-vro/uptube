@@ -480,7 +480,7 @@ function VideoComponentFull({
           headerHeight={headerHeight}
           videoHeight={videoHeight}
           onClose={() => onTranscriptToggle(null)}>
-          <View className="flex-1 bg-background px-4">
+          <View className="flex-1 px-4" style={{ backgroundColor: colors.border }}>
             {/* Header with Close Button */}
             <View className="flex-row items-center justify-between py-2">
               <View />
@@ -496,10 +496,11 @@ function VideoComponentFull({
 
             {/* Tabs */}
             <SwipableTabs
+              key={activeTab || 'TRANSCRIPT'}
               tabs={tabs}
               initialTabKey={activeTab || 'TRANSCRIPT'}
               onTabChange={(key) => {
-                // optional: update active tab state if needed for sync
+                setActiveTab(key as TranscriptToggleType);
               }}
             />
           </View>
