@@ -1,3 +1,5 @@
+import { ISponsorBlockTakenResponse } from './sponsorblock';
+
 export type JsonValue =
   | string
   | number
@@ -45,7 +47,7 @@ export interface Video {
   last_manual_fetch: Date | string;
   available_qualities: string[];
   thumbnails: Array<Thumbnail>;
-  sponsorblocks: JsonValue;
+  sponsorblocks: ISponsorBlockTakenResponse[];
   chapters: any[] | null;
   createdAt: Date | string;
   updatedAt: Date | string;

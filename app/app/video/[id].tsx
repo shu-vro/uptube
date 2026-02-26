@@ -51,6 +51,8 @@ import {
   addProgressListener,
   YTDLInfo,
 } from '@/modules/uptube-ytdl';
+import { ISponsorBlockSegment } from '@/types/sponsorblock';
+import DownloadVideo from '@/components/specific/DownloadVideo';
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -62,6 +64,7 @@ export default function VideoDetailScreen() {
   const [currentTime, setCurrentTime] = useState(0);
   const [isTranscriptSheetOpen, setIsTranscriptSheetOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TranscriptToggleType>(null);
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
   const videoPlayerRef = useRef<VideoPlayerHandle | null>(null);
 
@@ -96,37 +99,89 @@ export default function VideoDetailScreen() {
     (url: string) => get({ endpoint: url })
   );
 
+  const sideEffectsDoneRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (data) {
+      if (sideEffectsDoneRef.current === data.id) return;
+      sideEffectsDoneRef.current = data.id;
       (async () => {
         if (twoDateDifference(new Date(), new Date(data.extra?.last_disliked_at || 0)) >= 3) {
-          const dislikes = await axios.get(
-            `https://returnyoutubedislikeapi.com/votes?videoId=${data.id}`
-          );
+          try {
+            const dislikes = await axios.get(
+              `https://returnyoutubedislikeapi.com/votes?videoId=${data.id}`
+            );
 
-          if (dislikes.status !== 200) {
-            if (dislikes.status === 429) {
+            mutate(
+              {
+                ...data,
+                dislike_count: dislikes.data.dislikes,
+                extra: { ...data.extra, last_disliked_at: Date.now() },
+              },
+              false
+            );
+            // send this data to server
+            try {
+              await put({
+                endpoint: `/public/yt/update-dislikes/${data.id}`,
+                params: { dislike_count: dislikes.data.dislikes },
+                throwable: true,
+              });
+            } catch (error: any) {}
+          } catch (error: any) {
+            if (error.status !== 200) {
+              if (error.status === 429) {
+                return;
+              }
+              return console.log('[RETURNYOUTUBEDISLIKEAPI]: Failed to fetch dislike count');
+            }
+          }
+        }
+        if (
+          !data.sponsorblocks?.length &&
+          twoDateDifference(new Date(), new Date(data.extra?.last_sponsorblock_at || 0)) >= 3
+        ) {
+          try {
+            console.log(`https://sponsor.ajay.app/api/skipSegments?videoID=${data.id}`);
+            const sponsorBlocks = await axios.get(
+              `https://sponsor.ajay.app/api/skipSegments?videoID=${data.id}`
+            );
+
+            const sponsorData = sponsorBlocks.data.map((s: ISponsorBlockSegment) => ({
+              category: s.category,
+              start: Math.trunc(s.segment[0]) || 0,
+              end: Math.trunc(s.segment[1]) || 0,
+            }));
+
+            console.log(sponsorData);
+            mutate(
+              {
+                ...data,
+                sponsorblocks: sponsorData,
+                extra: { ...data.extra, last_sponsorblock_at: Date.now() },
+              },
+              false
+            );
+            // // send this data to server
+            // try {
+            //   await put({
+            //     endpoint: `/public/yt/update-dislikes/${data.id}`,
+            //     params: { dislike_count: sponsorBlocks.data.dislikes },
+            //     throwable: true,
+            //   });
+            // } catch (error) {
+            //   //
+            // }
+          } catch (error: any) {
+            if (error?.status !== 200) {
+              if (error?.status === 404) {
+                return console.log('[SPONSORBLOCK]: Video not found on SponsorBlock', data.id);
+              }
+              if (error?.status === 400) {
+                return console.log('[SPONSORBLOCK]: Bad Request', data.id);
+              }
               return;
             }
-            return console.log('[RETURNYOUTUBEDISLIKEAPI]: Failed to fetch dislike count');
-          }
-          mutate(
-            {
-              ...data,
-              dislike_count: dislikes.data.dislikes,
-              extra: { ...data.extra, last_disliked_at: Date.now() },
-            },
-            false
-          );
-          // send this data to server
-          try {
-            await put({
-              endpoint: `/public/yt/update-dislikes/${data.id}`,
-              params: { dislike_count: dislikes.data.dislikes },
-              throwable: true,
-            });
-          } catch (error) {
-            //
           }
         }
       })();
@@ -250,7 +305,9 @@ export default function VideoDetailScreen() {
                     {miniNumber(Number(video.dislike_count) || 0)}
                   </Text>
                 </Pressable>
-                <Pressable className="mr-4 flex-row items-center gap-1 rounded-full bg-muted px-4 py-2">
+                <Pressable
+                  className="mr-4 flex-row items-center gap-1 rounded-full bg-muted px-4 py-2"
+                  onPress={() => setDownloadModalOpen(true)}>
                   <ArrowBigDown size={24} color={colors.foreground} />
                   <Text className="font-medium">Download</Text>
                 </Pressable>
@@ -310,6 +367,13 @@ export default function VideoDetailScreen() {
           contentContainerStyle={{ paddingBottom: 100 }}
         />
       )}
+      <DownloadVideo
+        open={downloadModalOpen}
+        setOpen={setDownloadModalOpen}
+        videoId={id}
+        availableQualities={video.available_qualities}
+        videoTitle={video.title}
+      />
     </SafeAreaView>
   );
 }
@@ -372,14 +436,10 @@ function VideoComponentFull({
   }, [videoPlayerRef]);
 
   // fetch download url
-  const { data: downloadData, mutate } = useSWR(
-    id ? `/public/yt/download-data/${id}` : null,
-    (url: string) => post({ endpoint: url, params: { quality: selectedQuality } })
+  const { data: downloadData } = useSWR(
+    id ? [`/public/yt/download-data/${id}`, selectedQuality] : null,
+    ([url, quality]: [string, string]) => post({ endpoint: url, params: { quality } })
   );
-
-  useEffect(() => {
-    mutate();
-  }, [selectedQuality]);
 
   const tabs = [
     {
@@ -458,10 +518,11 @@ function VideoComponentFull({
           title={video.title}
           description={video.short_description || undefined}
           author={video.creator?.title || undefined}
+          skipSegments={video.sponsorblocks}
         />
       </View>
       <Sheet open={openQualitySheet} onClose={() => setOpenQualitySheet(false)}>
-        <Text variant="h3">Playback Speed</Text>
+        <Text variant="h3">Available Qualities</Text>
         {video.available_qualities?.map((q) => (
           <SettingsButton
             key={q}
@@ -470,7 +531,8 @@ function VideoComponentFull({
             selectedText=" "
             onPress={() => {
               setSelectedQuality(q);
-            }}></SettingsButton>
+            }}
+          />
         ))}
       </Sheet>
 

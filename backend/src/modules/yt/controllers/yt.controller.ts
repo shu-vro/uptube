@@ -1,16 +1,20 @@
 import logger from "config/logger/pino.logger";
-import { Request } from "express";
+import { Request, Response } from "express";
 import { asyncHandler } from "utils/async-handler";
 import { Innertube, UniversalCache, YTNodes } from "youtubei.js";
 import { Platform, Types, Utils, YT, Constants } from "youtubei.js/web";
 import { sanitizeYtUrl } from "utils/yt";
+import { Readable } from "stream";
 import { searchYtVideosAndSaveToDB, updateVideo } from "./yt.search.controller";
 import { differenceInDays } from "utils/time";
 import _ from "lodash";
 import {
+  downloadVideoQualityOptionsSchema,
+  downloadVideoSchema,
   idSchema,
   paginationSchema,
   searchQuerySchema,
+  updateDislikesSchema,
 } from "../validators/yt.validator";
 import { Video } from "generated/prisma/client";
 
@@ -169,15 +173,15 @@ export const getDownloadData = asyncHandler(
 );
 
 export const updateDislikes = asyncHandler(async (req: Request) => {
-  const videoId = req.params.video_id;
-  const dislikeCount = req.body.dislike_count;
-  if (!videoId) {
-    return req._error("Video ID is required");
-  }
+  const parsed = updateDislikesSchema.parse({
+    ...req.body,
+    ...req.params,
+  });
+
+  const { video_id, dislike_count } = parsed;
 
   const video = await prisma.video.findUnique({
-    where: { id: videoId },
-    // only select 2 fields: dislike_count and extra
+    where: { id: video_id },
     select: {
       dislike_count: true,
       extra: true,
@@ -186,9 +190,6 @@ export const updateDislikes = asyncHandler(async (req: Request) => {
 
   if (!video) {
     return req._error("Video not found");
-  }
-  if (dislikeCount === undefined || typeof dislikeCount !== "number") {
-    return req._error("Dislike count is required and must be a number");
   }
 
   if (!video.extra) {
@@ -212,9 +213,9 @@ export const updateDislikes = asyncHandler(async (req: Request) => {
   }
 
   await prisma.video.update({
-    where: { id: videoId },
+    where: { id: video_id },
     data: {
-      dislike_count: String(dislikeCount),
+      dislike_count: String(dislike_count),
       extra: {
         ...(typeof video.extra === "object" && video.extra !== null
           ? video.extra
@@ -227,9 +228,44 @@ export const updateDislikes = asyncHandler(async (req: Request) => {
   req._success("ok");
 });
 
-import { SabrStream } from "googlevideo/sabr-stream";
-import { buildSabrFormat, EnabledTrackTypes } from "googlevideo/utils";
-import type { SabrFormat } from "googlevideo/shared-types";
+export const downloadVideo = asyncHandler(
+  async (req: Request, res: Response) => {
+    const parsed = downloadVideoSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return req._error({ message: parsed.error.issues[0].message });
+    }
+
+    const parsedBody = downloadVideoQualityOptionsSchema.safeParse(req.query);
+    if (!parsedBody.success) {
+      console.log(parsedBody.error);
+      return req._error({ message: parsedBody.error.issues[0].message });
+    }
+    const { video_id } = parsed.data;
+    let options = parsedBody.data ?? {};
+
+    const streamingData = await yt.getStreamingData(video_id, {
+      format: "any",
+      type: "video+audio",
+      quality: "bestefficiency",
+      ...options,
+    });
+    const contentLength = streamingData?.content_length;
+
+    // if (options.range) {
+    //   options.range.start ??= 0;
+    //   options.range.end ??= streamingData.approx_duration_ms / 1000;
+    // }
+
+    const downloadStream = await yt.download(video_id, options);
+    res.setHeader("Content-Type", "video/mp4");
+    if (contentLength) {
+      res.setHeader("Content-Length", contentLength.toString()); // in bytes
+    } else {
+      res.setHeader("Transfer-Encoding", "chunked");
+    }
+    Readable.fromWeb(downloadStream as ReadableStream<Uint8Array>).pipe(res);
+  }
+);
 
 // const info = await yt.getSearchSuggestions("linear algebra");
 // const info = await yt.getHashtag("game");

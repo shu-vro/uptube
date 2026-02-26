@@ -31,9 +31,6 @@ export default function Sheet({
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
 
-  const handlePresentModalPress = useCallback(() => {
-    bottomSheetModalRef.current?.present();
-  }, []);
   const handleSheetChanges = useCallback(
     (index: number) => {
       if (index === -1) {
@@ -54,7 +51,7 @@ export default function Sheet({
     };
 
     if (open) {
-      handlePresentModalPress();
+      bottomSheetModalRef.current?.present();
     } else {
       bottomSheetModalRef.current?.dismiss();
     }
@@ -64,7 +61,7 @@ export default function Sheet({
     return () => {
       sub.remove();
     };
-  }, [open, handlePresentModalPress]);
+  }, [open]);
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (

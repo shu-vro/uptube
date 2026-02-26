@@ -58,6 +58,19 @@ import HeatmapGraph, { isValidHeatmap, HeatmapData } from './heatmap-graph';
 import { type Video as TVideo } from '@/types/prisma';
 import { VideoComponentProps } from '@/app/video/[id]';
 import { formatTime } from '@/lib/utils/number-format';
+import { type ISponsorBlockTakenResponse } from '@/types/sponsorblock';
+import Lucide from '@react-native-vector-icons/lucide';
+
+const SPONSOR_COLORS: Record<ISponsorBlockTakenResponse['category'], string> = {
+  sponsor: '#00d400',
+  selfpromo: '#ffff00',
+  interaction: '#cc00ff',
+  intro: '#00ffff',
+  outro: '#0202ed',
+  preview: '#008fd6',
+  hook: '#ff9900',
+  filler: '#7300ab',
+};
 
 export type VideoPlayerHandle = {
   seek: (time: number) => void;
@@ -78,6 +91,7 @@ type Props = {
   title?: string;
   description?: string;
   author?: string;
+  skipSegments?: TVideo['sponsorblocks'];
 } & ReactVideoProps;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -97,6 +111,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       heatmap,
       chapters,
       author,
+      skipSegments,
       ...rest
     },
     ref
@@ -476,6 +491,18 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       transform: [{ scale: scale.value }],
     }));
 
+    const [sliderWidth, setSliderWidth] = useState(0);
+
+    // active sponsorblock segment
+    const activeSkipSegment = useMemo(() => {
+      if (!skipSegments || !Array.isArray(skipSegments) || duration === 0) return null;
+      return (
+        (skipSegments as ISponsorBlockTakenResponse[]).find(
+          (s) => currentTime >= s.start && currentTime < s.end
+        ) || null
+      );
+    }, [currentTime, skipSegments, duration]);
+
     // chapter selection
     const runningChapter = useMemo(() => {
       if (!chapters || chapters.length === 0) return null;
@@ -630,46 +657,46 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
             )}
           </View>
 
-          <View
-            className="absolute flex w-full flex-row items-center justify-between px-4"
-            style={{ bottom: hasHeatmap ? 38 : 12 }}>
-            <View className="mr-4 flex flex-shrink flex-row items-center justify-start gap-1">
-              <View className="flex-shrink-0 rounded-full bg-white/15 px-3 py-1">
-                <Text className="text-xs font-medium text-white">
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </Text>
-              </View>
-              {runningChapter && (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  className="flex-shrink rounded-full bg-white/15 px-3 py-1"
-                  onPress={() => {
-                    onTranscriptToggle?.('CHAPTER');
-                  }}>
-                  <Text
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                    className="text-xs font-medium text-white">
-                    {runningChapter?.title}
+          <View className="absolute w-full px-4" style={{ bottom: hasHeatmap ? 38 : 12 }}>
+            <View className="flex-row items-center justify-between">
+              <View className="mr-4 flex flex-shrink flex-row items-center justify-start gap-1">
+                <View className="flex-shrink-0 rounded-full bg-white/15 px-3 py-1">
+                  <Text className="text-xs font-medium text-white">
+                    {formatTime(currentTime)} / {formatTime(duration)}
                   </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            <View className="flex-row items-center justify-end py-1">
-              <TouchableOpacity
-                onPress={() => {
-                  setOpenSpeedSheet(true);
-                }}
-                className="mr-2 rounded bg-white/15 px-2 py-1">
-                <Text className="text-xs font-bold text-white">{rate}x</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={toggleFullscreen}>
-                {isFullscreen ? (
-                  <Minimize size={20} color="white" />
-                ) : (
-                  <Maximize size={20} color="white" />
+                </View>
+                {runningChapter && (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    className="flex-shrink rounded-full bg-white/15 px-3 py-1"
+                    onPress={() => {
+                      onTranscriptToggle?.('CHAPTER');
+                    }}>
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      className="text-xs font-medium text-white">
+                      {runningChapter?.title}
+                    </Text>
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
+              </View>
+              <View className="flex-row items-center justify-end py-1">
+                <TouchableOpacity
+                  onPress={() => {
+                    setOpenSpeedSheet(true);
+                  }}
+                  className="mr-2 rounded bg-white/15 px-2 py-1">
+                  <Text className="text-xs font-bold text-white">{rate}x</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={toggleFullscreen}>
+                  {isFullscreen ? (
+                    <Minimize size={20} color="white" />
+                  ) : (
+                    <Maximize size={20} color="white" />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Animated.View>
@@ -701,27 +728,69 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
               </View>
             )}
             {/* Progress bar merged with bottom */}
-            <Slider
-              containerStyle={{
-                width: '100%',
-                height: 24,
-                marginBottom: -8,
-              }}
-              minimumValue={0}
-              maximumValue={duration}
-              value={currentTime}
-              onSlidingStart={handleSlidingStart}
-              onSlidingComplete={(values) => handleSlidingComplete(values[0])}
-              onValueChange={(values) => handleSliderChange(values[0])}
-              minimumTrackTintColor="#FF0000"
-              maximumTrackTintColor="rgba(255,255,255,0.3)"
-              thumbTintColor="#FF0000"
-              trackStyle={{ height: 3, borderRadius: 0 }}
-              thumbStyle={{ width: 14, height: 14, borderRadius: 7 }}
-            />
+            <View
+              style={{ width: '100%', height: 24, marginBottom: -8 }}
+              onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}>
+              <Slider
+                containerStyle={{
+                  width: '100%',
+                  height: 24,
+                }}
+                minimumValue={0}
+                maximumValue={duration}
+                value={currentTime}
+                onSlidingStart={handleSlidingStart}
+                onSlidingComplete={(values) => handleSlidingComplete(values[0])}
+                onValueChange={(values) => handleSliderChange(values[0])}
+                minimumTrackTintColor="#FF0000"
+                maximumTrackTintColor="rgba(255,255,255,0.3)"
+                thumbTintColor="#FF0000"
+                trackStyle={{ height: 3, borderRadius: 0 }}
+                thumbStyle={{ width: 14, height: 14, borderRadius: 7 }}
+              />
+              {/* Sponsorblock segment markers */}
+              {sliderWidth > 0 &&
+                duration > 0 &&
+                (skipSegments as ISponsorBlockTakenResponse[] | undefined)?.map((seg, i) => {
+                  const thumbHalf = 7;
+                  const trackWidth = sliderWidth - thumbHalf * 2;
+                  const left = thumbHalf + (seg.start / duration) * trackWidth;
+                  const width = Math.max(3, ((seg.end - seg.start) / duration) * trackWidth);
+                  const color = SPONSOR_COLORS[seg.category] ?? '#ffffff';
+                  return (
+                    <View
+                      key={i}
+                      pointerEvents="none"
+                      style={{
+                        position: 'absolute',
+                        left,
+                        width,
+                        height: 5,
+                        top: (24 - 5) / 2,
+                        backgroundColor: color,
+                        borderRadius: 2,
+                        opacity: 0.85,
+                        zIndex: 2,
+                      }}
+                    />
+                  );
+                })}
+            </View>
             {/* Bottom controls bar */}
           </View>
         </Animated.View>
+
+        {/* Skip segment button — always visible, never fades, sits above the seekbar */}
+        {activeSkipSegment && (
+          <TouchableOpacity
+            onPress={() => handleSeek(activeSkipSegment.end)}
+            className="absolute right-3 z-20 flex-row items-center gap-1 rounded-full bg-white/15 px-3 py-1.5"
+            style={{ bottom: (hasHeatmap ? 46 : 20) + 32 }}>
+            <Text className="text-xs font-bold text-white">Skip {activeSkipSegment.category}</Text>
+            <Lucide name="chevron-last" color="white" size={14} />
+          </TouchableOpacity>
+        )}
+
         <Sheet open={openSettings} onClose={() => setOpenSettings(false)}>
           <Text variant="h3">Settings</Text>
           <SettingsButton

@@ -2,6 +2,7 @@ import axios from 'axios';
 import { getItem, getItemSecure } from './async-storage';
 import Constants from 'expo-constants';
 import { encryptHybrid } from './encryption';
+import { Platform } from 'react-native';
 
 type RequestOptions = {
   endpoint: string;
@@ -9,13 +10,21 @@ type RequestOptions = {
   token?: string;
   full?: boolean;
   throwable?: boolean;
+  version?: string;
 };
 
 const request = async (
   method: 'get' | 'put' | 'post' | 'delete' = 'get',
-  { endpoint = '', payload = {}, token = '', full = false, throwable = false }: RequestOptions
+  {
+    endpoint = '',
+    payload = {},
+    token = '',
+    full = false,
+    throwable = false,
+    version = 'v1',
+  }: RequestOptions
 ) => {
-  const url = Constants.expoConfig?.extra?.UPTUBE_API + '/api/v1' + endpoint;
+  const url = Constants.expoConfig?.extra?.UPTUBE_API + '/api/' + version + endpoint;
   const FEATURES = await getItem('features');
   let response = null;
   try {
@@ -24,7 +33,13 @@ const request = async (
     const tokenFromStorage = await getItemSecure('token');
     token = token || tokenFromStorage;
 
-    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-App-Version': Constants.expoConfig?.version ?? 'unknown',
+      'X-Build-Version': Constants.nativeBuildVersion ?? 'unknown',
+      'X-Platform': Platform.OS,
+      'X-Platform-Version': String(Platform.Version),
+    };
     if (FEATURES?.FEATURE_FLAGS?.ENCRYPT_REQUESTS) {
       headers['X-Encrypt'] = '1';
       if (payload && Object.keys(payload).length > 0) {
@@ -70,8 +85,9 @@ export const get = async ({
   token = '',
   full = false,
   throwable = false,
+  version = 'v1',
 }: Partial<Exclude<RequestOptions, 'payload'>> & { params?: {} }) => {
-  return await request('get', { endpoint, payload: params, token, full, throwable });
+  return await request('get', { endpoint, payload: params, token, full, throwable, version });
 };
 
 export const post = async ({
@@ -80,14 +96,16 @@ export const post = async ({
   token = '',
   full = false,
   throwable = false,
+  version = 'v1',
 }: Partial<{
   endpoint: string;
   params?: any;
   token?: string;
   full: boolean;
   throwable?: boolean;
+  version?: string;
 }>) => {
-  return await request('post', { endpoint, payload: params, token, full, throwable });
+  return await request('post', { endpoint, payload: params, token, full, throwable, version });
 };
 
 export const put = async ({
@@ -96,14 +114,16 @@ export const put = async ({
   token = '',
   full = false,
   throwable = false,
+  version = 'v1',
 }: Partial<{
   endpoint: string;
   params?: any;
   token?: string;
   full: boolean;
   throwable?: boolean;
+  version?: string;
 }>) => {
-  return await request('put', { endpoint, payload: params, token, full, throwable });
+  return await request('put', { endpoint, payload: params, token, full, throwable, version });
 };
 
 export const del = async ({
@@ -112,12 +132,14 @@ export const del = async ({
   token = '',
   full = false,
   throwable = false,
+  version = 'v1',
 }: Partial<{
   endpoint: string;
   params?: any;
   token?: string;
   full: boolean;
   throwable?: boolean;
+  version?: string;
 }>) => {
-  return await request('delete', { endpoint, payload: params, token, full, throwable });
+  return await request('delete', { endpoint, payload: params, token, full, throwable, version });
 };

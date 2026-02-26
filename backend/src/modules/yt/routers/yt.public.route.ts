@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   do_something,
+  downloadVideo,
   getDownloadData,
   getVideoInfo,
   home,
@@ -402,5 +403,74 @@ router.put("/update-dislikes/:video_id", isEncrypted, updateDislikes);
  *         description: Server error
  */
 router.get("/do-something", do_something);
+/**
+ * @openapi
+ * /api/v1/public/yt/download-video/{video_id}:
+ *   get:
+ *     summary: Download a YouTube video
+ *     description: Streams a YouTube video as binary data. Accepts optional quality/format options as query parameters.
+ *     parameters:
+ *       - in: path
+ *         name: video_id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: YouTube video ID
+ *         example: "hmWLXgLtO_c"
+ *       - in: query
+ *         name: quality
+ *         schema:
+ *           type: string
+ *         description: Desired quality (e.g. "360p", "720p", "bestefficiency")
+ *         example: "360p"
+ *       - in: query
+ *         name: itag
+ *         schema:
+ *           type: number
+ *         description: Specific itag for the format
+ *         example: 18
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [video, audio, "video+audio"]
+ *         description: Media type to download
+ *         example: "video+audio"
+ *       - in: query
+ *         name: language
+ *         schema:
+ *           type: string
+ *         description: Language code for dubbed/captioned streams
+ *         example: "en"
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *         description: Container format (e.g. "mp4", "webm")
+ *         example: "mp4"
+ *       - in: query
+ *         name: codec
+ *         schema:
+ *           type: string
+ *         description: Codec preference (e.g. "h264", "vp9")
+ *         example: "h264"
+ *     responses:
+ *       200:
+ *         description: Video binary stream
+ *         content:
+ *           video/mp4:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Invalid or missing video ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Server error
+ */
+router.get("/download-video/:video_id", downloadVideo);
 
 export default router;
