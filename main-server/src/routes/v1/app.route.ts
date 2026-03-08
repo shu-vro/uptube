@@ -10,4 +10,8 @@ router.use("/protected", protectedRouter);
 router.use("/public", publicRouter);
 router.use("/admin", adminRouter);
 
+router.get("/health", (req) => {
+  req._success({ status: "healthy" });
+});
+
 export default router;

@@ -75,12 +75,16 @@ const SPONSOR_COLORS: Record<ISponsorBlockTakenResponse['category'], string> = {
 export type VideoPlayerHandle = {
   seek: (time: number) => void;
   isPaused: () => boolean;
+  pause: () => void;
+  resume: () => void;
 };
 
 type Props = {
+  audioSrc?: string;
   src: string;
   poster?: string;
   style?: any;
+  selectedQuality?: string;
   onFullScreenChange?: (isFullscreen: boolean) => void;
   onPipChange?: (isActive: boolean) => void;
   onCurrentTimeChange?: (currentTime: number) => void;
@@ -92,6 +96,9 @@ type Props = {
   description?: string;
   author?: string;
   skipSegments?: TVideo['sponsorblocks'];
+  /** Accurate duration in seconds. Overrides the value reported by onLoad, which can
+   * be wrong for YouTube adaptive streams (e.g. VP9 video-only containers often
+   * report double the real duration). */
 } & ReactVideoProps;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -101,8 +108,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
   (
     {
       src,
+      audioSrc,
       poster,
       style,
+      selectedQuality,
       onFullScreenChange,
       onPipChange,
       onCurrentTimeChange,
@@ -118,16 +127,43 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
   ) => {
     const hasHeatmap = isValidHeatmap(heatmap);
     const videoRef = useRef<VideoRef>(null);
+    const audioRef = useRef<VideoRef>(null);
+    const audioCurrentTimeRef = useRef<number>(0);
+    const audioLoadedRef = useRef(false);
+    const resumeTimeRef = useRef(0);
+    const pausedRef = useRef(false);
     const CHANGABLE_DIMENSION = useWindowDimensions();
 
-    useImperativeHandle(ref, () => ({
-      seek: (time: number) => {
+    // Seek both video and audio (when audioSrc is present) to the same position
+    const seekBoth = useCallback(
+      (time: number) => {
         videoRef.current?.seek(time);
+        if (audioSrc) {
+          audioRef.current?.seek(time);
+          audioCurrentTimeRef.current = time;
+        }
       },
-      isPaused: () => {
-        return paused;
-      },
-    }));
+      [audioSrc]
+    );
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        seek: (time: number) => {
+          seekBoth(time);
+        },
+        isPaused: () => {
+          return pausedRef.current;
+        },
+        pause: () => {
+          setPaused(true);
+        },
+        resume: () => {
+          setPaused(false);
+        },
+      }),
+      [seekBoth]
+    );
     const [paused, setPaused] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -135,6 +171,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     const [systemVolume, setSystemVolume] = useState(1.0);
     const [controlsVisible, setControlsVisible] = useState(true);
     const [isBuffering, setIsBuffering] = useState(false);
+    const [isAudioBuffering, setIsAudioBuffering] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [openSettings, setOpenSettings] = useState(false);
     const [openSettings2, setOpenSettings2] = useState(false);
@@ -145,6 +182,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     const [speedInput, setSpeedInput] = useState('1.0');
     const [isScrubbing, setIsScrubbing] = useState(false);
     const rateInitialized = useRef(false);
+    // Keep pausedRef in sync for use in imperative handle
+    useEffect(() => {
+      pausedRef.current = paused;
+    }, [paused]);
     const longPressActive = useRef(false);
     const volumeThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => {
@@ -235,21 +276,66 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     //   };
     // }, [showControls]);
 
+    const isFirstSrcMount = useRef(true);
+    useEffect(() => {
+      if (isFirstSrcMount.current) {
+        isFirstSrcMount.current = false;
+        return;
+      }
+      // src changed mid-playback — stash current time for handleLoad to seek to
+      resumeTimeRef.current = currentTime;
+    }, [src]);
+
+    // Ref prevents double-firing when both handleProgress and onEnd reach end
+    const endFiredRef = useRef(false);
+
+    const handleEnd = useCallback(() => {
+      if (endFiredRef.current) return;
+      endFiredRef.current = true;
+      setEnded(true);
+      setPaused(true);
+      showControls();
+    }, [showControls]);
+
     const handleProgress = (data: OnProgressData) => {
       if (isScrubbing) return;
-      setCurrentTime(data.currentTime);
-      onCurrentTimeChange?.(data.currentTime);
+      const t = data.currentTime;
+      setCurrentTime(t);
+      onCurrentTimeChange?.(t);
+      // Drift correction: only after audio has loaded, re-sync if more than 500ms off
+      if (audioSrc && audioLoadedRef.current && Math.abs(audioCurrentTimeRef.current - t) > 0.5) {
+        audioRef.current?.seek(t);
+        audioCurrentTimeRef.current = t;
+      }
+      if (duration > 0 && !ended && t >= duration - 0.3) {
+        handleEnd();
+      }
     };
 
     const handleLoad = (data: OnLoadData) => {
-      setDuration(data.duration);
+      console.log(src, audioSrc);
+      const searchParamsFromVideo = new URLSearchParams(src.split('?')[1]);
+      const searchParamsParsedDur = parseFloat(searchParamsFromVideo.get('dur') || '0');
+      audioLoadedRef.current = false;
+      audioCurrentTimeRef.current = 0;
+      endFiredRef.current = false;
+      setDuration(searchParamsParsedDur || data.duration);
       setVideoSize(data.naturalSize);
       setEnded(false);
+      // Seek to saved position (non-zero after a quality switch)
+      const resumeAt = resumeTimeRef.current;
+      if (resumeAt > 0) {
+        videoRef.current?.seek(resumeAt);
+        setCurrentTime(resumeAt);
+        resumeTimeRef.current = 0;
+      } else {
+        setCurrentTime(0);
+      }
       showControls();
     };
 
     const handleSeek = (value: number) => {
-      videoRef.current?.seek(value);
+      seekBoth(value);
       setCurrentTime(value);
       showControls();
     };
@@ -271,7 +357,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
 
     const togglePlayPause = useCallback(() => {
       if (ended) {
-        videoRef.current?.seek(0);
+        endFiredRef.current = false;
+        seekBoth(0);
         setEnded(false);
         setPaused(false);
         showControls();
@@ -294,7 +381,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
           controlsOpacity.value = withTiming(0, { duration: 200 });
         }, 3000);
       }
-    }, [paused, ended, showControls, controlsOpacity]);
+    }, [paused, ended, showControls, controlsOpacity, seekBoth]);
 
     const enterPip = useCallback(() => {
       videoRef.current?.enterPictureInPicture();
@@ -534,15 +621,11 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
                   paused={paused}
                   rate={rate}
                   volume={1}
-                  muted={muted}
+                  muted={audioSrc ? true : muted}
                   repeat={loop}
                   onProgress={handleProgress}
                   onLoad={handleLoad}
-                  onEnd={() => {
-                    setEnded(true);
-                    setPaused(true);
-                    showControls();
-                  }}
+                  onEnd={handleEnd}
                   playInBackground
                   playWhenInactive
                   onBuffer={({ isBuffering }) => setIsBuffering(isBuffering)}
@@ -557,6 +640,34 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
                   }}
                   {...rest}
                 />
+                {/* Invisible audio-only player for separated audio streams */}
+                {audioSrc && (
+                  <Video
+                    key={audioSrc}
+                    ref={audioRef}
+                    source={{ uri: audioSrc }}
+                    style={{ position: 'absolute', width: 0, height: 0 }}
+                    paused={paused}
+                    rate={rate}
+                    volume={1}
+                    muted={muted}
+                    repeat={loop}
+                    playInBackground
+                    playWhenInactive
+                    ignoreSilentSwitch="ignore"
+                    onLoad={(data) => {
+                      // console.log(data, audioSrc);
+                      // Snap audio to video's current position when it first loads
+                      audioRef.current?.seek(currentTime);
+                      audioCurrentTimeRef.current = currentTime;
+                      audioLoadedRef.current = true;
+                    }}
+                    onProgress={(data) => {
+                      audioCurrentTimeRef.current = data.currentTime;
+                    }}
+                    onBuffer={({ isBuffering: buffering }) => setIsAudioBuffering(buffering)}
+                  />
+                )}
               </Animated.View>
 
               <Animated.View style={[styles.feedbackIcon, styles.leftFeedback, rewindStyle]}>
@@ -630,13 +741,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
           <View
             className="flex-1 items-center justify-center"
             pointerEvents={controlsVisible ? 'box-none' : 'none'}>
-            {isBuffering ? (
+            {isBuffering || isAudioBuffering ? (
               <ActivityIndicator size="large" color="white" />
             ) : ended ? (
               <TouchableOpacity
                 className="rounded-full bg-white/15 px-4 py-3"
                 onPress={() => {
-                  videoRef.current?.seek(0);
+                  endFiredRef.current = false;
+                  seekBoth(0);
                   setEnded(false);
                   setPaused(false);
                   showControls();
@@ -797,7 +909,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
             Icon={Settings2}
             label="Quality"
             type="option"
-            selectedText={'bestefficiency'}
+            selectedText={selectedQuality || 'bestefficiency'}
             onPress={() => setOpenQualitySheet?.(true)}
           />
           <SettingsButton

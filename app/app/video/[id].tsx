@@ -11,7 +11,7 @@ import {
   Animated,
   TouchableOpacity,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
 import { ArrowBigDown, ArrowLeft, Flame, ThumbsDown } from 'lucide-react-native';
@@ -80,6 +80,15 @@ export default function VideoDetailScreen() {
       setActiveTab(type);
     }
   }, []);
+
+  // Pause when navigating away so old audio doesn't bleed into the new video
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        videoPlayerRef.current?.pause();
+      };
+    }, [])
+  );
 
   // Fetch video details
   const { data, error, isLoading, mutate } = useSWR<Video>(
@@ -404,14 +413,14 @@ function VideoComponentFull({
   headerHeight,
 }: VideoComponentProps) {
   const [openQualitySheet, setOpenQualitySheet] = useState(false);
-  const [selectedQuality, setSelectedQuality] = useState('bestefficiency');
+  const [selectedQuality, setSelectedQuality] = useState('720p');
   const [videoHeight, setVideoHeight] = useState(0);
   const { id } = useLocalSearchParams<{ id: string }>();
   const videoRef = useRef<VideoPlayerHandle>(null);
   const { colorScheme } = useColorScheme();
   const colors = THEME[colorScheme ?? 'light'];
 
-  // Expose seek method to parent
+  // Expose all handle methods to parent
   useEffect(() => {
     videoPlayerRef.current = {
       seek: (time: number) => {
@@ -420,19 +429,29 @@ function VideoComponentFull({
       isPaused: () => {
         return videoRef.current?.isPaused() ?? false;
       },
+      pause: () => {
+        videoRef.current?.pause();
+      },
+      resume: () => {
+        videoRef.current?.resume();
+      },
     };
   }, [videoPlayerRef]);
 
   // fetch download url
   const { data: downloadData } = useSWR(
-    id ? [`/download/video-audio/${id}`, selectedQuality] : null,
-    ([url, quality]: [string, string]) =>
-      get({
+    id ? [`/download/video-audio/separate/${id}`, selectedQuality] : null,
+    async ([url, quality]: [string, string]) => {
+      const result = await get({
         endpoint: url,
         params: { quality },
         baseUrl: Constants.expoConfig?.extra?.UPTUBE_DOWNLOAD_API,
-      })
+      });
+      return result || null;
+    }
   );
+
+  // console.log(JSON.stringify(downloadData?.video_fmt, null, 2));
 
   const tabs = [
     {
@@ -499,11 +518,13 @@ function VideoComponentFull({
         <VideoPlayer
           ref={videoRef}
           poster={video.thumbnails?.[0]?.url}
-          src={downloadData?.url}
+          src={downloadData?.video_fmt?.url}
+          audioSrc={downloadData?.audio_fmt?.url}
           style={{ width: '100%', height: '100%' }}
           onFullScreenChange={onFullScreenChange}
           onPipChange={onPipChange}
           onCurrentTimeChange={onCurrentTimeChange}
+          selectedQuality={selectedQuality}
           setOpenQualitySheet={setOpenQualitySheet}
           onTranscriptToggle={onTranscriptToggle}
           heatmap={video.heatmap as any}
@@ -524,6 +545,7 @@ function VideoComponentFull({
             selectedText=" "
             onPress={() => {
               setSelectedQuality(q);
+              setOpenQualitySheet(false);
             }}
           />
         ))}

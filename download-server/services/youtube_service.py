@@ -120,8 +120,18 @@ def _filter_by_ext(candidates: list, preferred_ext: Optional[str]) -> list:
     return by_ext if by_ext else candidates
 
 
+def _prefer_h264(candidates: list) -> list:
+    """Prefer H.264 (avc1) video streams for iOS AVPlayer compatibility.
+    AV1 (av01) and VP9 (vp09) cause a black screen on iOS regardless of
+    resolution — AVPlayer advances time but cannot decode the frames.
+    Falls back to all candidates only if no H.264 stream is available."""
+    h264 = [f for f in candidates if (
+        f.get("vcodec") or "").startswith("avc1")]
+    return h264 if h264 else candidates
+
+
 def pick_format(
-    info: Dict[str, Any], mode: str, quality: str, preferred_ext: Optional[str]
+    info: Dict[str, Any], mode: str, quality: str, preferred_ext: Optional[str], device: Optional[str] = None
 ) -> Dict[str, Any]:
     formats = info.get("formats", [])
     if not formats:
@@ -156,6 +166,8 @@ def pick_format(
         if not candidates:
             raise HTTPException(
                 status_code=404, detail="No video-only format available")
+        if device and device.lower() == "ios":
+            candidates = _prefer_h264(candidates)
         if target_height is not None:
             return _pick_by_height(candidates, target_height, target_fps)
         if quality == "bestefficiency":

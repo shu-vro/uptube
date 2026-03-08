@@ -7,6 +7,7 @@ from config.logging import configure_logging
 from constants.app import APP_METADATA
 from lib.utils.format_response import format_error
 from middlewares.cors_middleware import setup_cors_middleware
+from middlewares.payload_decryption import setup_payload_decryption_middleware
 from middlewares.rate_limit_middleware import setup_rate_limit_middleware
 from routes.download_routes import router as download_router
 from routes.system_routes import router as system_router
@@ -18,6 +19,8 @@ def create_app() -> FastAPI:
 
     app = FastAPI(**APP_METADATA)
     setup_rate_limit_middleware(app)
+    setup_payload_decryption_middleware(
+        app, allow_unencrypted=ENV["ALLOW_UNENCRYPTED_REQUESTS"])
     setup_cors_middleware(app, ENV["ALLOWED_ORIGINS"])
 
     @app.exception_handler(StarletteHTTPException)

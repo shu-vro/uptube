@@ -4,3 +4,4 @@ yt-dlp==2024.3.10
 python-multipart==0.0.9
 loguru==0.7.2
 httpx>=0.26.0
+PyNaCl>=1.4.0

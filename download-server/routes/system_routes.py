@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 from loguru import logger
 
 from config.env import ENV
-from lib.utils import format_response
+from lib.utils.format_response import format_response
 from middlewares.rate_limit_middleware import limiter
 
 router = APIRouter(tags=["system"])
@@ -27,6 +27,6 @@ async def root(request: Request) -> dict[str, object]:
 
 @router.get("/health")
 @limiter.limit(ENV["RATE_LIMIT"])
-async def health_check(request: Request) -> dict[str, str]:
+async def health_check(request: Request) -> dict[str, object]:
     logger.debug("Health check endpoint accessed")
     return format_response({"status": "healthy"})

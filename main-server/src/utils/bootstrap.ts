@@ -54,6 +54,10 @@ declare global {
       user?: User | null;
       encrypted?: boolean;
       requestSent: boolean;
+      platform: string;
+      appVersion: string;
+      platformVersion: string;
+      buildVersion: string;
     }
   }
 }

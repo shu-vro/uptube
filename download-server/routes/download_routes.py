@@ -118,7 +118,8 @@ async def stream_video_audio(
 
     try:
         info = get_video_info(video_url)
-        video_fmt = pick_format(info, "video", quality, video_format)
+        video_fmt = pick_format(
+            info, "video", quality, video_format, device=request.headers.get("x-platform"))
         audio_fmt = pick_format(info, "audio", "worst", None)
 
         video_stream_url = video_fmt.get("url")

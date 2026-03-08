@@ -14,4 +14,7 @@ ENV = MappingProxyType({
     "ALLOWED_ORIGINS": _allowed_origins or ["*"],
     "RATE_LIMIT_PER_MINUTE": int(os.getenv("RATE_LIMIT_PER_MINUTE", "60")),
     "RATE_LIMIT": f"{int(os.getenv('RATE_LIMIT_PER_MINUTE', '60'))}/minute",
+    "QUERY_PUBLIC_KEY": os.getenv("QUERY_PUBLIC_KEY"),
+    "QUERY_PRIVATE_KEY": os.getenv("QUERY_PRIVATE_KEY"),
+    "ALLOW_UNENCRYPTED_REQUESTS": os.getenv("ALLOW_UNENCRYPTED_REQUESTS", "true").lower() == "true",
 })
