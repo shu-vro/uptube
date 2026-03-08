@@ -19,9 +19,18 @@ fi
 echo "📦 Syncing dependencies..."
 uv sync
 
+if [[ -f .env ]]; then
+    set -a
+    source .env
+    set +a
+fi
+
+HOST=${HOST:-0.0.0.0}
+PORT=${PORT:-8000}
+
 # Run the server
 echo "🚀 Starting YouTube Download API..."
-echo "📍 Server will be available at http://localhost:8000"
-echo "📚 API docs at http://localhost:8000/docs"
+echo "📍 Server will be available at http://localhost:${PORT}"
+echo "📚 API docs at http://localhost:${PORT}/docs"
 echo ""
-uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uv run uvicorn main:app --host "$HOST" --port "$PORT" --reload

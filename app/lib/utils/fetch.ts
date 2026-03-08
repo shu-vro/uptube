@@ -11,6 +11,7 @@ type RequestOptions = {
   full?: boolean;
   throwable?: boolean;
   version?: string;
+  baseUrl?: string;
 };
 
 const request = async (
@@ -22,9 +23,10 @@ const request = async (
     full = false,
     throwable = false,
     version = 'v1',
+    baseUrl = Constants.expoConfig?.extra?.UPTUBE_API,
   }: RequestOptions
 ) => {
-  const url = Constants.expoConfig?.extra?.UPTUBE_API + '/api/' + version + endpoint;
+  const url = baseUrl + '/api/' + version + endpoint;
   const FEATURES = await getItem('features');
   let response = null;
   try {
@@ -86,8 +88,17 @@ export const get = async ({
   full = false,
   throwable = false,
   version = 'v1',
+  baseUrl,
 }: Partial<Exclude<RequestOptions, 'payload'>> & { params?: {} }) => {
-  return await request('get', { endpoint, payload: params, token, full, throwable, version });
+  return await request('get', {
+    endpoint,
+    payload: params,
+    token,
+    full,
+    throwable,
+    version,
+    baseUrl,
+  });
 };
 
 export const post = async ({
@@ -97,6 +108,7 @@ export const post = async ({
   full = false,
   throwable = false,
   version = 'v1',
+  baseUrl,
 }: Partial<{
   endpoint: string;
   params?: any;
@@ -104,8 +116,17 @@ export const post = async ({
   full: boolean;
   throwable?: boolean;
   version?: string;
+  baseUrl?: string;
 }>) => {
-  return await request('post', { endpoint, payload: params, token, full, throwable, version });
+  return await request('post', {
+    endpoint,
+    payload: params,
+    token,
+    full,
+    throwable,
+    version,
+    baseUrl,
+  });
 };
 
 export const put = async ({
@@ -115,6 +136,7 @@ export const put = async ({
   full = false,
   throwable = false,
   version = 'v1',
+  baseUrl,
 }: Partial<{
   endpoint: string;
   params?: any;
@@ -122,8 +144,17 @@ export const put = async ({
   full: boolean;
   throwable?: boolean;
   version?: string;
+  baseUrl?: string;
 }>) => {
-  return await request('put', { endpoint, payload: params, token, full, throwable, version });
+  return await request('put', {
+    endpoint,
+    payload: params,
+    token,
+    full,
+    throwable,
+    version,
+    baseUrl,
+  });
 };
 
 export const del = async ({
@@ -133,6 +164,7 @@ export const del = async ({
   full = false,
   throwable = false,
   version = 'v1',
+  baseUrl,
 }: Partial<{
   endpoint: string;
   params?: any;
@@ -140,6 +172,15 @@ export const del = async ({
   full: boolean;
   throwable?: boolean;
   version?: string;
+  baseUrl?: string;
 }>) => {
-  return await request('delete', { endpoint, payload: params, token, full, throwable, version });
+  return await request('delete', {
+    endpoint,
+    payload: params,
+    token,
+    full,
+    throwable,
+    version,
+    baseUrl,
+  });
 };
