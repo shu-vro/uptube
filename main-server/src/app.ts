@@ -1,7 +1,7 @@
 import "utils/bootstrap";
 import express from "express";
 import cors from "cors";
-import routes from "./routes/v1/app.route";
+import routes_v1 from "./routes/v1/app.route";
 import errorHandler from "./middlewares/error/global";
 import { validateRequest } from "./middlewares/error/validation";
 import helmet from "helmet";
@@ -57,7 +57,7 @@ app.use(validateRequest);
 app.use(responseFormat);
 app.use(payloadEncryptionMiddleware);
 
-app.use("/api/v1", routes);
+app.use("/api/v1", routes_v1);
 
 app.use(errorHandler);
 

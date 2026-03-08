@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 from loguru import logger
 
 from config.env import ENV
+from lib.utils import format_response
 from middlewares.rate_limit_middleware import limiter
 
 router = APIRouter(tags=["system"])
@@ -11,7 +12,7 @@ router = APIRouter(tags=["system"])
 @limiter.limit(ENV["RATE_LIMIT"])
 async def root(request: Request) -> dict[str, object]:
     logger.info("Root endpoint accessed")
-    return {
+    return format_response({
         "message": "YouTube Download API",
         "description": "Get direct download URLs for videos",
         "endpoints": {
@@ -21,11 +22,11 @@ async def root(request: Request) -> dict[str, object]:
             "download_video_audio": "/download/video-audio/{video_id}",
             "info": "/info/{video_id}",
         },
-    }
+    })
 
 
 @router.get("/health")
 @limiter.limit(ENV["RATE_LIMIT"])
 async def health_check(request: Request) -> dict[str, str]:
     logger.debug("Health check endpoint accessed")
-    return {"status": "healthy"}
+    return format_response({"status": "healthy"})

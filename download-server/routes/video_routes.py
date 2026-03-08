@@ -3,6 +3,7 @@ from loguru import logger
 
 from config.env import ENV
 from constants.app import YOUTUBE_WATCH_URL
+from lib.utils.format_response import format_response
 from middlewares.rate_limit_middleware import limiter
 from services.youtube_service import get_video_info
 
@@ -52,7 +53,7 @@ async def list_streams(request: Request, video_id: str) -> dict[str, object]:
         logger.success(
             f"Listed {len(formats)} formats for: {info.get('title', 'Unknown')}"
         )
-        return result
+        return format_response(result)
     except Exception as error:
         logger.error(f"Error listing streams: {error}")
         raise HTTPException(status_code=500, detail=str(error))
@@ -83,7 +84,7 @@ async def get_info(request: Request, video_id: str) -> dict[str, object]:
             "webpage_url": info.get("webpage_url"),
         }
         logger.success(f"Got info for: {info.get('title', 'Unknown')}")
-        return result
+        return format_response(result)
     except Exception as error:
         logger.error(f"Error getting info: {error}")
         raise HTTPException(status_code=500, detail=str(error))

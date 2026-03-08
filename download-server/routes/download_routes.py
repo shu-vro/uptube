@@ -1,12 +1,14 @@
-import asyncio
+import os
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
+import asyncio
 
 from config.env import ENV
 from constants.app import YOUTUBE_WATCH_URL
+from lib.utils.format_response import format_response
 from middlewares.rate_limit_middleware import limiter
 from services.youtube_service import get_video_info, pick_format
 
@@ -48,7 +50,7 @@ async def download_video(
         }
         logger.success(
             f"Got video-only URL for: {info.get('title', 'Unknown')}")
-        return result
+        return format_response(result)
     except HTTPException:
         raise
     except Exception as error:
@@ -91,7 +93,7 @@ async def download_audio(
         }
         logger.success(
             f"Got audio-only URL for: {info.get('title', 'Unknown')}")
-        return result
+        return format_response(result)
     except HTTPException:
         raise
     except Exception as error:
@@ -99,6 +101,52 @@ async def download_audio(
         raise HTTPException(status_code=500, detail=str(error))
 
 
+# can't digest it, can't throw it off. that's the only way for me now.
+@router.get("/video-audio/separate/{video_id}")
+@limiter.limit(ENV["RATE_LIMIT"])
+async def stream_video_audio(
+    request: Request,
+    video_id: str,
+    quality: Optional[str] = Query(
+        "best", description="Video quality: 1440p60, 1080p60, 1080p, 720p60, 720p, 480p, 360p, 240p, 144p, best, or bestefficiency"),
+    video_format: Optional[str] = Query(
+        "mp4", description="Preferred video container extension"),
+) -> dict[str, object]:
+    video_url = YOUTUBE_WATCH_URL.format(video_id=video_id)
+    logger.info(
+        f"Streaming merged video+audio for: {video_id} (quality: {quality})")
+
+    try:
+        info = get_video_info(video_url)
+        video_fmt = pick_format(info, "video", quality, video_format)
+        audio_fmt = pick_format(info, "audio", "worst", None)
+
+        video_stream_url = video_fmt.get("url")
+        audio_stream_url = audio_fmt.get("url")
+
+        if not video_stream_url:
+            raise HTTPException(
+                status_code=404, detail="No video stream URL found")
+        if not audio_stream_url:
+            raise HTTPException(
+                status_code=404, detail="No audio stream URL found")
+
+        # send two info
+        result = {
+            "video_fmt": video_fmt,
+            "audio_fmt": audio_fmt,
+        }
+        logger.success(
+            f"Got video+audio URLs for: {info.get('title', 'Unknown')}")
+        return format_response(result)
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(f"Error streaming video+audio: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+# this one is for downloading. It merges video and audio on the fly using ffmpeg, so it can be a bit unstable if the source streams are not reliable.
 @router.get("/video-audio/stream/{video_id}")
 @limiter.limit(ENV["RATE_LIMIT"])
 async def stream_video_audio(
@@ -174,6 +222,7 @@ async def stream_video_audio(
         raise HTTPException(status_code=500, detail=str(error))
 
 
+# this one is pretty stable, returns only one url.
 @router.get("/video-audio/{video_id}")
 @limiter.limit(ENV["RATE_LIMIT"])
 async def download_video_audio(
@@ -210,7 +259,7 @@ async def download_video_audio(
         }
         logger.success(
             f"Got video+audio URL for: {info.get('title', 'Unknown')}")
-        return result
+        return format_response(result)
     except HTTPException:
         raise
     except Exception as error:

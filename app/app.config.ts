@@ -11,9 +11,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: './assets/icons/icons-folder/iTunesArtwork@2x.png',
   scheme: appName,
   userInterfaceStyle: 'automatic',
-  // newArchEnabled: true,
   extra: {
     UPTUBE_API: process.env.UPTUBE_API,
+    UPTUBE_DOWNLOAD_API: process.env.UPTUBE_DOWNLOAD_API,
     MMKV_ENCRYPTION_KEY: process.env.MMKV_ENCRYPTION_KEY,
     eas: {
       projectId: 'e85bb0bd-70bd-47ae-b3c1-085ef92c34db',
@@ -35,7 +35,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.shirshen.uptube',
-    // edgeToEdgeEnabled: true,
     adaptiveIcon: {
       foregroundImage: './assets/expo-icons/splash-icon.png',
       backgroundColor: '#000000',

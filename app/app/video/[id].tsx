@@ -14,13 +14,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
-import {
-  AlignVerticalDistributeCenter,
-  ArrowBigDown,
-  ArrowLeft,
-  Flame,
-  ThumbsDown,
-} from 'lucide-react-native';
+import { ArrowBigDown, ArrowLeft, Flame, ThumbsDown } from 'lucide-react-native';
 import { useState, useCallback } from 'react';
 
 import { Text } from '@/components/ui/text';
@@ -44,15 +38,9 @@ import { SwipableTabs } from '@/components/ui/swipable-tabs';
 import { BottomSheetContainer } from '@/components/ui/bottom-sheet-container';
 import { X } from 'lucide-react-native';
 import axios from 'axios';
-import {
-  getInfo,
-  download,
-  getStreamUrls,
-  addProgressListener,
-  YTDLInfo,
-} from '@/modules/uptube-ytdl';
 import { ISponsorBlockSegment } from '@/types/sponsorblock';
 import DownloadVideo from '@/components/specific/DownloadVideo';
+import Constants from 'expo-constants';
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -437,8 +425,13 @@ function VideoComponentFull({
 
   // fetch download url
   const { data: downloadData } = useSWR(
-    id ? [`/public/yt/download-data/${id}`, selectedQuality] : null,
-    ([url, quality]: [string, string]) => post({ endpoint: url, params: { quality } })
+    id ? [`/download/video-audio/${id}`, selectedQuality] : null,
+    ([url, quality]: [string, string]) =>
+      get({
+        endpoint: url,
+        params: { quality },
+        baseUrl: Constants.expoConfig?.extra?.UPTUBE_DOWNLOAD_API,
+      })
   );
 
   const tabs = [
@@ -506,7 +499,7 @@ function VideoComponentFull({
         <VideoPlayer
           ref={videoRef}
           poster={video.thumbnails?.[0]?.url}
-          src={downloadData?.data.url}
+          src={downloadData?.url}
           style={{ width: '100%', height: '100%' }}
           onFullScreenChange={onFullScreenChange}
           onPipChange={onPipChange}

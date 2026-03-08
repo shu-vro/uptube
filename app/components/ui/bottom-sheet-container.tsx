@@ -3,7 +3,7 @@ import { Animated, Dimensions, StatusBar, View, StyleSheet } from 'react-native'
 import { useColorScheme } from 'nativewind';
 import { THEME } from '@/lib/theme';
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SCREEN_HEIGHT = Dimensions.get('screen').height;
 
 type Props = {
   isOpen: boolean;

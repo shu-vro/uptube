@@ -797,7 +797,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
             Icon={Settings2}
             label="Quality"
             type="option"
-            selectedText={'1080p'}
+            selectedText={'bestefficiency'}
             onPress={() => setOpenQualitySheet?.(true)}
           />
           <SettingsButton
