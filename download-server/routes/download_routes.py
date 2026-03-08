@@ -1,6 +1,8 @@
+import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from config.env import ENV
@@ -17,7 +19,7 @@ async def download_video(
     request: Request,
     video_id: str,
     quality: Optional[str] = Query(
-        "best", description="Video quality: best or worst"),
+        "best", description="Video quality: 1440p60, 1080p60, 1080p, 720p60, 720p, 480p, 360p, 240p, 144p, best, or bestefficiency"),
     format: Optional[str] = Query(
         "mp4", description="Preferred container extension"),
 ) -> dict[str, object]:
@@ -60,7 +62,7 @@ async def download_audio(
     request: Request,
     video_id: str,
     quality: Optional[str] = Query(
-        "best", description="Audio quality: best or worst"),
+        "best", description="Audio quality: best, worst, or bestefficiency"),
     format: Optional[str] = Query(
         "m4a", description="Preferred container extension"),
 ) -> dict[str, object]:
@@ -97,13 +99,88 @@ async def download_audio(
         raise HTTPException(status_code=500, detail=str(error))
 
 
+@router.get("/video-audio/stream/{video_id}")
+@limiter.limit(ENV["RATE_LIMIT"])
+async def stream_video_audio(
+    request: Request,
+    video_id: str,
+    quality: Optional[str] = Query(
+        "best", description="Video quality: 1440p60, 1080p60, 1080p, 720p60, 720p, 480p, 360p, 240p, 144p, best, or bestefficiency"),
+    video_format: Optional[str] = Query(
+        "mp4", description="Preferred video container extension"),
+) -> StreamingResponse:
+    video_url = YOUTUBE_WATCH_URL.format(video_id=video_id)
+    logger.info(
+        f"Streaming merged video+audio for: {video_id} (quality: {quality})")
+
+    try:
+        info = get_video_info(video_url)
+        video_fmt = pick_format(info, "video", quality, video_format)
+        audio_fmt = pick_format(info, "audio", "worst", None)
+
+        video_stream_url = video_fmt.get("url")
+        audio_stream_url = audio_fmt.get("url")
+
+        if not video_stream_url:
+            raise HTTPException(
+                status_code=404, detail="No video stream URL found")
+        if not audio_stream_url:
+            raise HTTPException(
+                status_code=404, detail="No audio stream URL found")
+
+        ffmpeg_cmd = [
+            "ffmpeg", "-y",
+            "-i", video_stream_url,
+            "-i", audio_stream_url,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-f", "mp4",
+            "-movflags", "frag_keyframe+empty_moov+default_base_moof",
+            "pipe:1",
+        ]
+
+        async def generate():
+            process = await asyncio.create_subprocess_exec(
+                *ffmpeg_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            try:
+                while True:
+                    chunk = await process.stdout.read(65536)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                if process.returncode is None:
+                    process.kill()
+                await process.wait()
+
+        title = info.get("title", video_id)
+        logger.success(f"Starting ffmpeg stream for: {title}")
+        return StreamingResponse(
+            generate(),
+            media_type="video/mp4",
+            headers={
+                "Content-Disposition": f'inline; filename="{video_id}.mp4"',
+                "X-Video-Title": title,
+                "X-Video-Quality": video_fmt.get("resolution") or quality,
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(f"Error streaming video+audio: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+
 @router.get("/video-audio/{video_id}")
 @limiter.limit(ENV["RATE_LIMIT"])
 async def download_video_audio(
     request: Request,
     video_id: str,
     quality: Optional[str] = Query(
-        "best", description="Quality: best or worst"),
+        "best", description="Quality: 1440p60, 1080p60, 1080p, 720p60, 720p, 480p, 360p, 240p, 144p, best, or bestefficiency"),
     format: Optional[str] = Query(
         "mp4", description="Preferred container extension"),
 ) -> dict[str, object]:
