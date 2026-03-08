@@ -170,6 +170,7 @@ export function TranscriptViewer({
     const isActive = index === activeCaptionIndex;
     return (
       <Pressable
+        key={item.start}
         onLayout={(event) => {
           const { y } = event.nativeEvent.layout;
           setItemLayouts((prev) => ({ ...prev, [index]: y }));

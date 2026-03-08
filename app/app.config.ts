@@ -11,7 +11,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: './assets/icons/icons-folder/iTunesArtwork@2x.png',
   scheme: appName,
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
+  // newArchEnabled: true,
   extra: {
     UPTUBE_API: process.env.UPTUBE_API,
     MMKV_ENCRYPTION_KEY: process.env.MMKV_ENCRYPTION_KEY,
@@ -29,10 +29,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     bundleIdentifier: 'com.shirshen.uptube',
     icon: './assets/expo-icons/splash-icon.png',
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     package: 'com.shirshen.uptube',
-    edgeToEdgeEnabled: true,
+    // edgeToEdgeEnabled: true,
     adaptiveIcon: {
       foregroundImage: './assets/expo-icons/splash-icon.png',
       backgroundColor: '#000000',

@@ -1,8 +1,15 @@
 import logger from "config/logger/pino.logger";
 import { Request, Response } from "express";
 import { asyncHandler } from "utils/async-handler";
-import { Innertube, UniversalCache, YTNodes } from "youtubei.js";
-import { Platform, Types, Utils, YT, Constants } from "youtubei.js/web";
+import { Innertube as asdf, UniversalCache, YTNodes } from "youtubei.js";
+import {
+  Platform,
+  Types,
+  Utils,
+  YT,
+  Constants,
+  Innertube,
+} from "youtubei.js/web";
 import { sanitizeYtUrl } from "utils/yt";
 import { Readable } from "stream";
 import { searchYtVideosAndSaveToDB, updateVideo } from "./yt.search.controller";
@@ -22,19 +29,52 @@ Platform.shim.eval = async (
   data: Types.BuildScriptResult,
   env: Record<string, Types.VMPrimative>
 ) => {
-  const properties: string[] = [];
+  const getExportedVars = new Function(
+    `${data.output}\nreturn typeof exportedVars === "object" && exportedVars !== null ? exportedVars : {};`
+  ) as () => Record<string, unknown>;
 
-  if (env.n) {
-    properties.push(`n: exportedVars.nFunction("${env.n}")`);
+  const exportedVars = getExportedVars();
+  const result: Record<string, string> = {};
+
+  console.log(
+    "Deciphering player script with exported variables",
+    exportedVars ?? "no",
+    env ?? "no"
+  );
+
+  if (typeof env.n === "string") {
+    const nFn = exportedVars.nFunction;
+    if (typeof nFn === "function") {
+      try {
+        result.n = nFn(env.n) as string;
+      } catch (error) {
+        logger.warn({ error }, "Failed to decipher n value, using original");
+        result.n = env.n;
+      }
+    } else {
+      logger.warn("Player script did not export nFunction, using original n");
+      result.n = env.n;
+    }
   }
 
-  if (env.sig) {
-    properties.push(`sig: exportedVars.sigFunction("${env.sig}")`);
+  if (typeof env.sig === "string") {
+    const sigFn = exportedVars.sigFunction;
+    if (typeof sigFn === "function") {
+      try {
+        result.sig = sigFn(env.sig) as string;
+      } catch (error) {
+        logger.warn({ error }, "Failed to decipher signature, using original");
+        result.sig = env.sig;
+      }
+    } else {
+      logger.warn(
+        "Player script did not export sigFunction, using original signature"
+      );
+      result.sig = env.sig;
+    }
   }
 
-  const code = `${data.output}\nreturn { ${properties.join(", ")} }`;
-
-  return new Function(code)();
+  return result;
 };
 
 export const yt = await Innertube.create({

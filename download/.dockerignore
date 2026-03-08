@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+.uv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+
+# Downloaded files
+downloads/
+*.mp4
+*.mp3
+*.webm
+*.m4a
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+run.sh
+
+# Lock files (will be regenerated in Docker)
+uv.lock
