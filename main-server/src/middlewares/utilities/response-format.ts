@@ -17,7 +17,7 @@ const responseFormat = (req: Request, res: Response, next: NextFunction) => {
 
   req._success = async (json: any, status?: number) => {
     let output = json;
-    if (FLAGS.ENCRYPTED_RESPONSES_ONLY) {
+    if (FLAGS.ENCRYPTED_RESPONSES_ONLY && req.client_public_key) {
       output = await encryptHybrid(
         JSON.stringify(json),
         req.client_public_key || ""

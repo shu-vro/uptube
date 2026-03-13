@@ -128,7 +128,9 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
     },
   });
 
-  updateVideo(videoInfo as Video);
+  if (videoInfo) {
+    updateVideo(videoInfo);
+  }
 
   req._success(videoInfo);
 });

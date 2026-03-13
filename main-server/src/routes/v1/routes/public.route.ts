@@ -1,6 +1,7 @@
 import { Router } from "express";
 import userRouter from "@/modules/user/routers/user.public.route";
 import ytRouter from "@/modules/yt/routers/yt.public.route";
+import shortsRouter from "@/modules/shorts/routers/shorts.public.route";
 import featuresRouter from "./public_router/features.route";
 
 const router = Router();
@@ -14,5 +15,6 @@ const router = Router();
 router.use("/features", featuresRouter);
 router.use("/users", userRouter);
 router.use("/yt", ytRouter);
+router.use("/shorts", shortsRouter);
 
 export default router;
