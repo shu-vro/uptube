@@ -1,4 +1,7 @@
+import FLAGS from "config/FLAGS";
+import logger from "config/logger/pino.logger";
 import { NextFunction, Request, Response } from "express";
+import { encryptHybrid } from "utils/encryption";
 
 const responseFormat = (req: Request, res: Response, next: NextFunction) => {
   req.platform =
@@ -9,13 +12,22 @@ const responseFormat = (req: Request, res: Response, next: NextFunction) => {
     req.header("x-platform-version")?.trim().substring(0, 100) || "unknown";
   req.buildVersion =
     req.header("x-build-version")?.trim().substring(0, 100) || "unknown";
+  req.client_public_key =
+    req.query.client_public_key || req.body.client_public_key || "";
 
-  req._success = (json: any, status?: number) => {
+  req._success = async (json: any, status?: number) => {
+    let output = json;
+    if (FLAGS.ENCRYPTED_RESPONSES_ONLY) {
+      output = await encryptHybrid(
+        JSON.stringify(json),
+        req.client_public_key || ""
+      );
+    }
     req.requestSent = true;
     res.status(status || 200).json({
       success: true,
       statusCode: status || 200,
-      data: json,
+      data: output,
     });
   };
   req._error = (message: any, status?: number) => {

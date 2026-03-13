@@ -58,6 +58,7 @@ declare global {
       appVersion: string;
       platformVersion: string;
       buildVersion: string;
+      client_public_key: string;
     }
   }
 }

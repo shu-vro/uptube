@@ -54,8 +54,8 @@ app.use((req, res, next) => {
 
 app.use(validateRequest);
 // app.use(limiter);
-app.use(responseFormat);
 app.use(payloadEncryptionMiddleware);
+app.use(responseFormat);
 
 app.use("/api/v1", routes_v1);
 

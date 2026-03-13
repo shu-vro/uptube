@@ -96,27 +96,29 @@ export default function VideoDetailScreen() {
     (url: string) => get({ endpoint: url })
   );
 
-  const sideEffectsDoneRef = useRef<string | null>(null);
+  const dislikesFetchInFlightRef = useRef<string | null>(null);
+  const sponsorFetchInFlightRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (data) {
-      if (sideEffectsDoneRef.current === data.id) return;
-      sideEffectsDoneRef.current = data.id;
       (async () => {
-        if (twoDateDifference(new Date(), new Date(data.extra?.last_disliked_at || 0)) >= 3) {
+        const shouldRefreshDislikes =
+          twoDateDifference(new Date(), new Date(data.extra?.last_disliked_at || 0)) >= 3;
+        if (shouldRefreshDislikes && dislikesFetchInFlightRef.current !== data.id) {
+          dislikesFetchInFlightRef.current = data.id;
           try {
             const dislikes = await axios.get(
               `https://returnyoutubedislikeapi.com/votes?videoId=${data.id}`
             );
 
-            mutate(
-              {
-                ...data,
+            mutate((current) => {
+              if (!current) return current;
+              return {
+                ...current,
                 dislike_count: dislikes.data.dislikes,
-                extra: { ...data.extra, last_disliked_at: Date.now() },
-              },
-              false
-            );
+                extra: { ...current.extra, last_disliked_at: Date.now() },
+              };
+            }, false);
             // send this data to server
             try {
               await put({
@@ -132,12 +134,15 @@ export default function VideoDetailScreen() {
               }
               return console.log('[RETURNYOUTUBEDISLIKEAPI]: Failed to fetch dislike count');
             }
+          } finally {
+            dislikesFetchInFlightRef.current = null;
           }
         }
-        if (
+        const shouldRefreshSponsorBlock =
           !data.sponsorblocks?.length &&
-          twoDateDifference(new Date(), new Date(data.extra?.last_sponsorblock_at || 0)) >= 3
-        ) {
+          twoDateDifference(new Date(), new Date(data.extra?.last_sponsorblock_at || 0)) >= 3;
+        if (shouldRefreshSponsorBlock && sponsorFetchInFlightRef.current !== data.id) {
+          sponsorFetchInFlightRef.current = data.id;
           try {
             console.log(`https://sponsor.ajay.app/api/skipSegments?videoID=${data.id}`);
             const sponsorBlocks = await axios.get(
@@ -151,14 +156,15 @@ export default function VideoDetailScreen() {
             }));
 
             console.log(sponsorData);
-            mutate(
-              {
-                ...data,
+
+            mutate((current) => {
+              if (!current) return current;
+              return {
+                ...current,
                 sponsorblocks: sponsorData,
-                extra: { ...data.extra, last_sponsorblock_at: Date.now() },
-              },
-              false
-            );
+                extra: { ...current.extra, last_sponsorblock_at: Date.now() },
+              };
+            }, false);
             // // send this data to server
             // try {
             //   await put({
@@ -179,6 +185,8 @@ export default function VideoDetailScreen() {
               }
               return;
             }
+          } finally {
+            sponsorFetchInFlightRef.current = null;
           }
         }
       })();
@@ -286,7 +294,7 @@ export default function VideoDetailScreen() {
                   •
                 </Text>
                 <Text variant="muted" className="text-sm">
-                  {distanceFromToday(video.createdAt.toString())}
+                  {distanceFromToday(video.trulyCreatedAt.toString())}
                 </Text>
               </View>
 
@@ -370,6 +378,7 @@ export default function VideoDetailScreen() {
         videoId={id}
         availableQualities={video.available_qualities}
         videoTitle={video.title}
+        authorName={video.creator?.title || 'unknown artist'}
       />
     </SafeAreaView>
   );
@@ -446,6 +455,7 @@ function VideoComponentFull({
         endpoint: url,
         params: { quality },
         baseUrl: Constants.expoConfig?.extra?.UPTUBE_DOWNLOAD_API,
+        overrideEncryptedResponsesOnly: true,
       });
       return result || null;
     }

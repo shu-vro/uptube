@@ -11,6 +11,7 @@ import { FlashList, FlashListRef } from '@shopify/flash-list';
 import { Text } from '@/components/ui/text';
 
 export default function Screen() {
+  // return null;
   const [allVideos, setAllVideos] = useState<Video[]>([]);
   const flashListRef = useRef<FlashListRef<Video>>(null);
   const [page, setPage] = useState(1);

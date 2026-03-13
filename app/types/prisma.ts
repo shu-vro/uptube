@@ -49,6 +49,7 @@ export interface Video {
   thumbnails: Array<Thumbnail>;
   sponsorblocks: ISponsorBlockTakenResponse[];
   chapters: any[] | null;
+  trulyCreatedAt: Date | string;
   createdAt: Date | string;
   updatedAt: Date | string;
   heatmap: JsonValue | null;

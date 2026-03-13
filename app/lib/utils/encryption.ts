@@ -36,3 +36,40 @@ export async function encryptHybrid(
     return JSON.parse(plaintext);
   }
 }
+
+export async function createNaClKeyPair() {
+  try {
+    const { default: nacl } = await import('tweetnacl');
+    const keyPair = nacl.box.keyPair();
+    return {
+      publicKey: toBase64Url(b64.fromByteArray(keyPair.publicKey)),
+      secretKey: toBase64Url(b64.fromByteArray(keyPair.secretKey)),
+    };
+  } catch (error) {
+    console.error('Error in createNaClKeyPair:', error);
+    throw error;
+  }
+}
+
+const fromBase64Url = (b64u: string) =>
+  (b64u.replace(/-/g, '+').replace(/_/g, '/') + '===').slice(0, Math.ceil(b64u.length / 4) * 4);
+
+export async function decryptHybrid(packedB64: string, privateKey: string) {
+  const { default: nacl } = await import('tweetnacl');
+  const b64u = String(packedB64 || '');
+  packedB64 = fromBase64Url(b64u);
+  const packed = b64.toByteArray(padB64(packedB64));
+  if (packed.length < 56) throw new Error('Ciphertext too short');
+
+  const ephPK = packed.slice(0, 32);
+  const nonce = packed.slice(32, 56);
+  const boxed = packed.slice(56);
+
+  const sk = b64.toByteArray(padB64(privateKey));
+  if (sk.length !== 32) throw new Error('Invalid server secret key length');
+
+  const msg = nacl.box.open(boxed, nonce, ephPK, sk);
+  if (!msg) throw new Error('Decryption failed: ' + packedB64);
+
+  return new TextDecoder().decode(msg);
+}

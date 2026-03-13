@@ -316,7 +316,6 @@ export async function updateVideo(videoInfo: Video) {
   ) {
     logger.info(`Updating video ${videoInfo.id}`);
     const info = await yt.getInfo(videoInfo.id);
-    // const videoInfo = await yt.getShortsVideoInfo(videoId)
 
     const captions = {};
 

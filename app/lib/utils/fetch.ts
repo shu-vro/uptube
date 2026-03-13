@@ -1,34 +1,40 @@
 import axios from 'axios';
 import { getItem, getItemSecure } from './async-storage';
 import Constants from 'expo-constants';
-import { encryptHybrid } from './encryption';
+import { createNaClKeyPair, decryptHybrid, encryptHybrid } from './encryption';
 import { Platform } from 'react-native';
+import { parseJSON } from './parser';
 
 type RequestOptions = {
   endpoint: string;
-  payload?: any;
+  params?: any;
   token?: string;
   full?: boolean;
   throwable?: boolean;
   version?: string;
   baseUrl?: string;
+  overrideEncryptedResponsesOnly?: boolean;
 };
 
 const request = async (
   method: 'get' | 'put' | 'post' | 'delete' = 'get',
   {
     endpoint = '',
-    payload = {},
+    params = {},
     token = '',
     full = false,
     throwable = false,
     version = 'v1',
     baseUrl = Constants.expoConfig?.extra?.UPTUBE_API,
+    overrideEncryptedResponsesOnly = false,
   }: RequestOptions
 ) => {
   const url = baseUrl + '/api/' + version + endpoint;
   const FEATURES = await getItem('features');
-  let response = null;
+  const needsResponseEncryption =
+    !FEATURES?.FEATURE_FLAGS?.DOES_NOT_NEED_RESPONSE_ENCRYPTION && !overrideEncryptedResponsesOnly;
+  let response = null,
+    keyPair: Awaited<ReturnType<typeof createNaClKeyPair>> | null = null;
   try {
     if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
     // check if local storage has token
@@ -42,27 +48,41 @@ const request = async (
       'X-Platform': Platform.OS,
       'X-Platform-Version': String(Platform.Version),
     };
+
+    if (needsResponseEncryption) {
+      keyPair = await createNaClKeyPair();
+      if (!keyPair || !keyPair?.publicKey || !keyPair?.secretKey) {
+        throw new Error('Failed to create encryption key pair');
+      }
+      params.client_public_key = keyPair.publicKey;
+      headers['X-Encrypted-Responses'] = 'true';
+    }
+
     if (FEATURES?.FEATURE_FLAGS?.ENCRYPT_REQUESTS) {
       headers['X-Encrypt'] = '1';
-      if (payload && Object.keys(payload).length > 0) {
+      if (params && Object.keys(params).length > 0) {
         const encryptedParams = await encryptHybrid(
-          JSON.stringify(payload || {}),
+          JSON.stringify(params || {}),
           FEATURES.encryption_public_key
         );
 
         // console.log(url + '?encrypted=' + encryptedParams.encrypted, 'fetching url');
-        payload = encryptedParams;
+        params = encryptedParams;
       }
     }
     response = await axios({
       method,
       headers,
       url,
-      data: method !== 'get' ? payload : undefined,
-      params: method === 'get' ? payload : undefined,
+      data: method !== 'get' ? params : undefined,
+      params: method === 'get' ? params : undefined,
     });
     if (response.data.success) {
-      const data = response.data.data;
+      let data = response.data.data;
+      if (needsResponseEncryption && keyPair) {
+        data = await decryptHybrid(data?.encrypted || '', keyPair.secretKey);
+        data = parseJSON(data);
+      }
       response.data.data = data;
       return full ? response : data;
     }
@@ -89,15 +109,17 @@ export const get = async ({
   throwable = false,
   version = 'v1',
   baseUrl,
-}: Partial<Exclude<RequestOptions, 'payload'>> & { params?: {} }) => {
+  overrideEncryptedResponsesOnly = false,
+}: Partial<RequestOptions>) => {
   return await request('get', {
     endpoint,
-    payload: params,
+    params,
     token,
     full,
     throwable,
     version,
     baseUrl,
+    overrideEncryptedResponsesOnly,
   });
 };
 
@@ -109,23 +131,17 @@ export const post = async ({
   throwable = false,
   version = 'v1',
   baseUrl,
-}: Partial<{
-  endpoint: string;
-  params?: any;
-  token?: string;
-  full: boolean;
-  throwable?: boolean;
-  version?: string;
-  baseUrl?: string;
-}>) => {
+  overrideEncryptedResponsesOnly = false,
+}: Partial<RequestOptions>) => {
   return await request('post', {
     endpoint,
-    payload: params,
+    params,
     token,
     full,
     throwable,
     version,
     baseUrl,
+    overrideEncryptedResponsesOnly,
   });
 };
 
@@ -137,23 +153,17 @@ export const put = async ({
   throwable = false,
   version = 'v1',
   baseUrl,
-}: Partial<{
-  endpoint: string;
-  params?: any;
-  token?: string;
-  full: boolean;
-  throwable?: boolean;
-  version?: string;
-  baseUrl?: string;
-}>) => {
+  overrideEncryptedResponsesOnly = false,
+}: Partial<RequestOptions>) => {
   return await request('put', {
     endpoint,
-    payload: params,
+    params,
     token,
     full,
     throwable,
     version,
     baseUrl,
+    overrideEncryptedResponsesOnly,
   });
 };
 
@@ -165,22 +175,16 @@ export const del = async ({
   throwable = false,
   version = 'v1',
   baseUrl,
-}: Partial<{
-  endpoint: string;
-  params?: any;
-  token?: string;
-  full: boolean;
-  throwable?: boolean;
-  version?: string;
-  baseUrl?: string;
-}>) => {
+  overrideEncryptedResponsesOnly = false,
+}: Partial<RequestOptions>) => {
   return await request('delete', {
     endpoint,
-    payload: params,
+    params,
     token,
     full,
     throwable,
     version,
     baseUrl,
+    overrideEncryptedResponsesOnly,
   });
 };

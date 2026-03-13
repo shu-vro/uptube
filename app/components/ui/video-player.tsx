@@ -96,9 +96,6 @@ type Props = {
   description?: string;
   author?: string;
   skipSegments?: TVideo['sponsorblocks'];
-  /** Accurate duration in seconds. Overrides the value reported by onLoad, which can
-   * be wrong for YouTube adaptive streams (e.g. VP9 video-only containers often
-   * report double the real duration). */
 } & ReactVideoProps;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -313,7 +310,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     };
 
     const handleLoad = (data: OnLoadData) => {
-      console.log(src, audioSrc);
       const searchParamsFromVideo = new URLSearchParams(src.split('?')[1]);
       const searchParamsParsedDur = parseFloat(searchParamsFromVideo.get('dur') || '0');
       audioLoadedRef.current = false;
@@ -433,11 +429,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
         }
       });
 
-    const singleTap = Gesture.Tap()
-      .maxDuration(250)
-      .onEnd(() => {
-        runOnJS(hardToggleControls)();
-      });
+    const singleTap = Gesture.Tap().onEnd(() => {
+      runOnJS(hardToggleControls)();
+    });
 
     const doubleTap = Gesture.Tap()
       .numberOfTaps(2)

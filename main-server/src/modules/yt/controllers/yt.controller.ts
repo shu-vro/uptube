@@ -25,57 +25,57 @@ import {
 } from "../validators/yt.validator";
 import { Video } from "generated/prisma/client";
 
-Platform.shim.eval = async (
-  data: Types.BuildScriptResult,
-  env: Record<string, Types.VMPrimative>
-) => {
-  const getExportedVars = new Function(
-    `${data.output}\nreturn typeof exportedVars === "object" && exportedVars !== null ? exportedVars : {};`
-  ) as () => Record<string, unknown>;
+// Platform.shim.eval = async (
+//   data: Types.BuildScriptResult,
+//   env: Record<string, Types.VMPrimative>
+// ) => {
+//   const getExportedVars = new Function(
+//     `${data.output}\nreturn typeof exportedVars === "object" && exportedVars !== null ? exportedVars : {};`
+//   ) as () => Record<string, unknown>;
 
-  const exportedVars = getExportedVars();
-  const result: Record<string, string> = {};
+//   const exportedVars = getExportedVars();
+//   const result: Record<string, string> = {};
 
-  console.log(
-    "Deciphering player script with exported variables",
-    exportedVars ?? "no",
-    env ?? "no"
-  );
+//   console.log(
+//     "Deciphering player script with exported variables",
+//     exportedVars ?? "no",
+//     env ?? "no"
+//   );
 
-  if (typeof env.n === "string") {
-    const nFn = exportedVars.nFunction;
-    if (typeof nFn === "function") {
-      try {
-        result.n = nFn(env.n) as string;
-      } catch (error) {
-        logger.warn({ error }, "Failed to decipher n value, using original");
-        result.n = env.n;
-      }
-    } else {
-      logger.warn("Player script did not export nFunction, using original n");
-      result.n = env.n;
-    }
-  }
+//   if (typeof env.n === "string") {
+//     const nFn = exportedVars.nFunction;
+//     if (typeof nFn === "function") {
+//       try {
+//         result.n = nFn(env.n) as string;
+//       } catch (error) {
+//         logger.warn({ error }, "Failed to decipher n value, using original");
+//         result.n = env.n;
+//       }
+//     } else {
+//       logger.warn("Player script did not export nFunction, using original n");
+//       result.n = env.n;
+//     }
+//   }
 
-  if (typeof env.sig === "string") {
-    const sigFn = exportedVars.sigFunction;
-    if (typeof sigFn === "function") {
-      try {
-        result.sig = sigFn(env.sig) as string;
-      } catch (error) {
-        logger.warn({ error }, "Failed to decipher signature, using original");
-        result.sig = env.sig;
-      }
-    } else {
-      logger.warn(
-        "Player script did not export sigFunction, using original signature"
-      );
-      result.sig = env.sig;
-    }
-  }
+//   if (typeof env.sig === "string") {
+//     const sigFn = exportedVars.sigFunction;
+//     if (typeof sigFn === "function") {
+//       try {
+//         result.sig = sigFn(env.sig) as string;
+//       } catch (error) {
+//         logger.warn({ error }, "Failed to decipher signature, using original");
+//         result.sig = env.sig;
+//       }
+//     } else {
+//       logger.warn(
+//         "Player script did not export sigFunction, using original signature"
+//       );
+//       result.sig = env.sig;
+//     }
+//   }
 
-  return result;
-};
+//   return result;
+// };
 
 export const yt = await Innertube.create({
   cache: new UniversalCache(true, "./.cache"),
@@ -322,6 +322,25 @@ export const do_something = asyncHandler(async (req: Request) => {
   // const downloadData = await yt.getStreamingData("m6qieXZsgwo", {
   //   // quality: "best",
   //   itag: 303,
+  // });
+
+  // NOTE: Never run a synchronous blocking loop directly in a route handler.
+  // It blocks Node's event loop and starves every other request.
+  // For CPU-intensive / long-running work, offload to a Worker Thread:
+  //
+  // import { Worker, isMainThread, workerData, parentPort } from "worker_threads";
+  //
+  // await new Promise<void>((resolve, reject) => {
+  //   const worker = new Worker(
+  //     `
+  //     const { parentPort } = require('worker_threads');
+  //     while (1) {}          // runs on a separate thread — event loop stays free
+  //     parentPort.postMessage('done');
+  //     `,
+  //     { eval: true }
+  //   );
+  //   worker.on("message", () => { worker.terminate(); resolve(); });
+  //   worker.on("error", reject);
   // });
 
   const videoId = sanitizeYtUrl("IfrJfGowmj0");

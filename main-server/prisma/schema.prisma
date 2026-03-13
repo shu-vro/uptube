@@ -39,6 +39,7 @@ model Video {
   thumbnails          Json        @default("[]")
   sponsorblocks       Json        @default("[]")
   chapters            Chapter[]
+  trulyCreatedAt      DateTime    @default(now())
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
   dislike_count       String      @default("0")

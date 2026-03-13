@@ -17,7 +17,7 @@ export default function FeaturesProvider({ children }: { children: React.ReactNo
     },
   });
   setItem('features', data || null);
-  console.log(data, 'from provider');
+  // console.log(JSON.stringify(data, null, 2), 'from provider');
   return (
     <Context.Provider value={{ data, mutate }}>
       {!dataFetchFailed && children}
