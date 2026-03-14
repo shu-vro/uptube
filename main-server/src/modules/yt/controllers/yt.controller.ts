@@ -23,7 +23,9 @@ import {
   searchQuerySchema,
   updateDislikesSchema,
 } from "../validators/yt.validator";
-import { Video } from "generated/prisma/client";
+import { Video, VideoType } from "generated/prisma/client";
+import { videoSafeFields } from "utils/safe_fields/video";
+import { JsonValue } from "@prisma/client/runtime/client";
 
 // Platform.shim.eval = async (
 //   data: Types.BuildScriptResult,
@@ -157,6 +159,18 @@ export const showSuggestions = asyncHandler(async (req: Request) => {
   req._success(suggestions);
 });
 
+type HomeVideo = {
+  id: string;
+  title: string;
+  duration: number;
+  view_count: string;
+  thumbnails: JsonValue;
+  createdAt: Date;
+  creator: {
+    title: string;
+  };
+};
+
 export const home = asyncHandler(async (req: Request) => {
   const parseResult = paginationSchema.safeParse(req.query);
   if (!parseResult.success) {
@@ -165,6 +179,9 @@ export const home = asyncHandler(async (req: Request) => {
   const page = parseResult.data.page;
   const limit = parseResult.data.limit;
 
+  let finalVideos: HomeVideo[] = [];
+  let finalShorts: HomeVideo[] = [];
+
   if (!global.videoIds || global.videoIds.length === 0) {
     const videos = await prisma.video.findMany({
       take: limit,
@@ -172,27 +189,74 @@ export const home = asyncHandler(async (req: Request) => {
       orderBy: {
         view_count: "desc",
       },
-      include: {
-        creator: true,
+      select: videoSafeFields.home,
+      where: {
+        type: VideoType.VIDEO,
       },
     });
-    req._success(videos);
-    return;
+    finalVideos = videos;
+  } else {
+    const vidIds = _.sampleSize(global.videoIds, limit);
+    const videos = await prisma.video.findMany({
+      where: {
+        id: {
+          in: vidIds,
+        },
+      },
+      select: videoSafeFields.home,
+    });
+    finalVideos = videos;
   }
 
-  const vidIds = _.sampleSize(global.videoIds, limit);
-  console.log(vidIds);
-  const videos = await prisma.video.findMany({
-    where: {
-      id: {
-        in: vidIds,
+  if (!global.shortsIds || global.shortsIds.length === 0) {
+    const shorts = await prisma.video.findMany({
+      take: limit,
+      skip: (page - 1) * limit,
+      orderBy: {
+        view_count: "desc",
       },
-    },
-    include: {
-      creator: true,
-    },
+      where: {
+        type: VideoType.SHORT,
+      },
+      select: videoSafeFields.home,
+    });
+    finalShorts = shorts;
+  } else {
+    const shortsIdsSample = _.sampleSize(
+      global.shortsIds,
+      Math.floor(limit / 2)
+    );
+    const shortsVideos = await prisma.video.findMany({
+      where: {
+        id: {
+          in: shortsIdsSample,
+        },
+      },
+      select: videoSafeFields.home,
+    });
+
+    finalShorts = shortsVideos;
+  }
+
+  let spanBreaks = [0, 10, 40, 70];
+  spanBreaks = spanBreaks.map((b) =>
+    Math.max(0, Math.floor((b / 100) * finalVideos.length))
+  );
+
+  let shelf: (HomeVideo | { type: "SHORTS_SHELF"; shorts: HomeVideo[] })[] = [];
+
+  finalVideos.forEach((video, i) => {
+    shelf.push(video);
+    if (spanBreaks.includes(i)) {
+      let arrayOfShorts = finalShorts.splice(
+        0,
+        Math.floor(finalShorts.length / spanBreaks.length)
+      );
+      shelf.push({ type: "SHORTS_SHELF", shorts: arrayOfShorts });
+      console.log("pushing", arrayOfShorts.length, "shorts at index", i);
+    }
   });
-  req._success(videos);
+  req._success({ spanBreaks, shelf: shelf });
 });
 
 export const getDownloadData = asyncHandler(
