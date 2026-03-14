@@ -253,7 +253,9 @@ export const home = asyncHandler(async (req: Request) => {
         Math.floor(finalShorts.length / spanBreaks.length)
       );
       shelf.push({ type: "SHORTS_SHELF", shorts: arrayOfShorts });
-      console.log("pushing", arrayOfShorts.length, "shorts at index", i);
+      logger.info(
+        `pushing shorts shelf at position ${i} with ${arrayOfShorts.length} shorts`
+      );
     }
   });
   req._success({ spanBreaks, shelf: shelf });

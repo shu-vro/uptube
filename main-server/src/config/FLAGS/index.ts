@@ -4,7 +4,7 @@ const FLAGS = Object.freeze({
   STOP_CONSOLE_AT_PROD: false || process.env.NODE_ENV !== "development",
   STOP_PINO_AT_PROD: false,
   ALLOW_UNENCRYPTED_REQUESTS: true,
-  ENCRYPTED_RESPONSES_ONLY: true, // response encryption is on.
+  ENCRYPTED_RESPONSES_ONLY: false, // response encryption is on.
 });
 
 export const CLIENT_FLAGS = Object.freeze({

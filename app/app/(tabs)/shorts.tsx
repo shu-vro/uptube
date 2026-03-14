@@ -250,6 +250,7 @@ export default function Shorts() {
 
   const bottomSpace = insets.bottom + 80;
   const topSpace = insets.top;
+  const fullscreenBottomOffset = isFullscreen ? Math.max(insets.bottom || 0, 24) : 0;
   const containerHeight = height - topSpace - bottomSpace;
 
   const onMomentumScrollEnd = useCallback(
@@ -340,9 +341,10 @@ export default function Shorts() {
                       <>
                         <View
                           className={cn(
-                            `pointer-events-none absolute left-4 right-12 top-4 z-10`,
+                            `pointer-events-none absolute left-4 right-12 z-10`,
                             interactionBottom
-                          )}>
+                          )}
+                          style={{ marginBottom: fullscreenBottomOffset }}>
                           <Text
                             className="text-base font-semibold text-white drop-shadow-md"
                             style={{
@@ -357,7 +359,8 @@ export default function Shorts() {
                           className={cn(
                             'absolute right-1 z-10 items-center justify-center gap-4',
                             interactionBottom
-                          )}>
+                          )}
+                          style={{ marginBottom: fullscreenBottomOffset }}>
                           <Pressable className="mb-2 items-center" hitSlop={10}>
                             {video.creator?.avatars?.[0]?.url ? (
                               <Image

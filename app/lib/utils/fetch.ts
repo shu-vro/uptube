@@ -32,7 +32,9 @@ const request = async (
   const url = baseUrl + '/api/' + version + endpoint;
   const FEATURES = await getItem('features');
   const needsResponseEncryption =
-    !FEATURES?.FEATURE_FLAGS?.DOES_NOT_NEED_RESPONSE_ENCRYPTION && !overrideEncryptedResponsesOnly;
+    false &&
+    !FEATURES?.FEATURE_FLAGS?.DOES_NOT_NEED_RESPONSE_ENCRYPTION &&
+    !overrideEncryptedResponsesOnly;
   let response = null,
     keyPair: Awaited<ReturnType<typeof createNaClKeyPair>> | null = null;
   try {

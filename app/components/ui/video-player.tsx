@@ -7,6 +7,7 @@ import React, {
   useImperativeHandle,
   useMemo,
 } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Video, { ReactVideoProps, VideoRef, OnProgressData, OnLoadData } from 'react-native-video';
 import {
   View,
@@ -133,6 +134,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     const pausedRef = useRef(false);
     const CHANGABLE_DIMENSION = useWindowDimensions();
 
+    const insets = useSafeAreaInsets();
+
     // Seek both video and audio (when audioSrc is present) to the same position
     const seekBoth = useCallback(
       (time: number) => {
@@ -177,6 +180,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     const [isBuffering, setIsBuffering] = useState(false);
     const [isAudioBuffering, setIsAudioBuffering] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const fullscreenBottomOffset = isFullscreen ? Math.max(insets.bottom || 0, 24) : 0;
     const [openSettings, setOpenSettings] = useState(false);
     const [openSettings2, setOpenSettings2] = useState(false);
     const [openSpeedSheet, setOpenSpeedSheet] = useState(false);
@@ -317,6 +321,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     };
 
     const handleLoad = (data: OnLoadData) => {
+      console.log(src, audioSrc);
       const searchParamsFromVideo = new URLSearchParams(src.split('?')[1]);
       const searchParamsParsedDur = parseFloat(searchParamsFromVideo.get('dur') || '0');
       audioLoadedRef.current = false;
@@ -770,7 +775,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
             )}
           </View>
 
-          <View className="absolute w-full px-4" style={{ bottom: hasHeatmap ? 38 : 12 }}>
+          <View
+            className="absolute w-full px-4"
+            style={{ bottom: (hasHeatmap ? 38 : 12) + fullscreenBottomOffset }}>
             <View className="flex-row items-center justify-between">
               <View className="mr-4 flex flex-shrink flex-row items-center justify-start gap-1">
                 <View className="flex-shrink-0 rounded-full bg-white/15 px-3 py-1">
@@ -829,7 +836,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
         </Animated.View>
 
         {/* Bottom bar with slider and controls */}
-        <Animated.View className="absolute bottom-0 w-full" style={[controlsStyle]}>
+        <Animated.View
+          className="absolute bottom-0 w-full"
+          style={[controlsStyle, { paddingBottom: fullscreenBottomOffset }]}>
           <View className="w-full">
             {hasHeatmap && (
               <View style={{ width: '100%', paddingHorizontal: 0, marginBottom: -4 }}>
@@ -898,7 +907,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
           <TouchableOpacity
             onPress={() => handleSeek(activeSkipSegment.end)}
             className="absolute right-3 z-20 flex-row items-center gap-1 rounded-full bg-white/15 px-3 py-1.5"
-            style={{ bottom: (hasHeatmap ? 46 : 20) + 32 }}>
+            style={{ bottom: (hasHeatmap ? 46 : 20) + 32 + fullscreenBottomOffset }}>
             <Text className="text-xs font-bold text-white">Skip {activeSkipSegment.category}</Text>
             <Lucide name="chevron-last" color="white" size={14} />
           </TouchableOpacity>
