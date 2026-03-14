@@ -109,6 +109,7 @@ export default function Search() {
   const debouncedSuggestionQuery = useDebounce(searchQuery, 200);
 
   const searchInputRef = useRef<TextInput>(null);
+  const keyboardWasShownRef = useRef(false);
   const searchBarPosition = useSharedValue(screenHeight / 3);
   const contentOpacity = useSharedValue(0);
 
@@ -159,13 +160,20 @@ export default function Search() {
   }, [searchQuery, searchBarPosition, contentOpacity, screenHeight, setHasSearched]);
 
   useEffect(() => {
-    const event = Keyboard.addListener('keyboardDidHide', (k) => {
-      if (!filteredSuggestions.length && searchQuery.length === 0) {
+    const event1 = Keyboard.addListener('keyboardDidShow', () => {
+      keyboardWasShownRef.current = true;
+      return () => {
+        event1.remove();
+      };
+    });
+    const event2 = Keyboard.addListener('keyboardDidHide', (k) => {
+      if (!filteredSuggestions.length && searchQuery.length === 0 && keyboardWasShownRef.current) {
         searchInputRef.current?.blur();
       }
+      keyboardWasShownRef.current = false;
 
       return () => {
-        event.remove();
+        event2.remove();
       };
     });
 

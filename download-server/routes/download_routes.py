@@ -126,9 +126,11 @@ async def stream_video_audio(
         audio_stream_url = audio_fmt.get("url")
 
         if not video_stream_url:
+            logger.warning(f"No video stream URL found for: {video_id}")
             raise HTTPException(
                 status_code=404, detail="No video stream URL found")
         if not audio_stream_url:
+            logger.warning(f"No audio stream URL found for: {video_id}")
             raise HTTPException(
                 status_code=404, detail="No audio stream URL found")
 

@@ -146,7 +146,7 @@ export const SearchResultVideo = ({
   return variant === 'list' ? <VideoCardList item={item} /> : <VideoCardGrid item={item} />;
 };
 
-export const ShortCard = ({ item }: { item: Video }) => {
+export const ShortCard = ({ item, shortIds }: { item: Video; shortIds: string[] }) => {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme ?? 'light'];
@@ -158,7 +158,13 @@ export const ShortCard = ({ item }: { item: Video }) => {
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={() => {
-        router.push(`/video/${item.id}`);
+        router.push({
+          pathname: '/(tabs)/shorts',
+          params: {
+            shortId: item.id,
+            shortIds: shortIds.join(','),
+          },
+        });
       }}
       style={{ width: cardWidth, marginRight: 12 }}>
       <View style={{ height: cardHeight }} className="overflow-hidden rounded-xl bg-muted">
@@ -192,6 +198,7 @@ export const ShortCard = ({ item }: { item: Video }) => {
 export const ShortsSection = ({ shorts }: { shorts: Video[] }) => {
   if (!shorts || shorts.length === 0) return null;
   const { colorScheme } = useColorScheme();
+  const shortIds = shorts.map((s) => s.id);
 
   return (
     <View className="mb-6">
@@ -208,7 +215,7 @@ export const ShortsSection = ({ shorts }: { shorts: Video[] }) => {
         data={shorts}
         horizontal
         showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => <ShortCard item={item} />}
+        renderItem={({ item }) => <ShortCard item={item} shortIds={shortIds} />}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingHorizontal: 16 }}
         snapToInterval={Dimensions.get('window').width * 0.45 + 12}
