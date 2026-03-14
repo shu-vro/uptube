@@ -96,6 +96,7 @@ type Props = {
   description?: string;
   author?: string;
   skipSegments?: TVideo['sponsorblocks'];
+  onControlsFade?: (visible: boolean) => void;
 } & ReactVideoProps;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -118,6 +119,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       chapters,
       author,
       skipSegments,
+      onControlsFade,
       ...rest
     },
     ref
@@ -167,6 +169,11 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     const [rate, setRate] = useState(1.0);
     const [systemVolume, setSystemVolume] = useState(1.0);
     const [controlsVisible, setControlsVisible] = useState(true);
+
+    useEffect(() => {
+      onControlsFade?.(controlsVisible);
+    }, [controlsVisible, onControlsFade]);
+
     const [isBuffering, setIsBuffering] = useState(false);
     const [isAudioBuffering, setIsAudioBuffering] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);

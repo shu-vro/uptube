@@ -22,6 +22,7 @@ import { Video } from '@/types/prisma';
 import DownloadVideo from '@/components/specific/DownloadVideo';
 import Sheet from '@/components/ui/sheet';
 import { Flame } from 'lucide-react-native';
+import { cn } from '@/lib/utils';
 
 type ShortsParams = {
   shortIds?: string | string[];
@@ -73,6 +74,8 @@ export default function Shorts() {
   const [openDownload, setOpenDownload] = useState(false);
   const [openQualitySheet, setOpenQualitySheet] = useState(false);
   const [selectedQualityById, setSelectedQualityById] = useState<Record<string, string>>({});
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [interactionBottom, setInteractionBottom] = useState('bottom-16');
 
   const playerRef = useRef<VideoPlayerHandle | null>(null);
   const randomFetchRef = useRef(false);
@@ -205,7 +208,22 @@ export default function Shorts() {
   }, [appendFromNextEdges, currentIndex, fetchRandomShort, queueIds]);
 
   useEffect(() => {
-    if (!currentVideo || currentVideo.available_qualities?.length === 0) return;
+    if (!currentVideo) return;
+
+    const heatmap = currentVideo.heatmap;
+    const hasHeatMarkers =
+      !!heatmap &&
+      typeof heatmap === 'object' &&
+      !Array.isArray(heatmap) &&
+      'heat_markers' in heatmap;
+
+    if (hasHeatMarkers) {
+      setInteractionBottom('bottom-24');
+    } else {
+      setInteractionBottom('bottom-16');
+    }
+
+    if (currentVideo.available_qualities?.length === 0) return;
     setSelectedQualityById((prev) => {
       if (prev[currentVideo.id]) return prev;
       return { ...prev, [currentVideo.id]: currentVideo.available_qualities[0] };
@@ -261,12 +279,15 @@ export default function Shorts() {
   }
 
   return (
-    <View className="flex-1 bg-black" style={{ paddingTop: topSpace, paddingBottom: bottomSpace }}>
-      <View style={{ height: containerHeight }}>
+    <View className="flex-1 bg-black" style={{ paddingTop: topSpace }}>
+      <View style={{ flex: 1 }}>
         <FlatList
           data={queueIds}
           keyExtractor={(id) => id}
-          pagingEnabled
+          snapToInterval={containerHeight}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          contentContainerStyle={{ paddingBottom: bottomSpace }}
           initialNumToRender={2}
           maxToRenderPerBatch={2}
           windowSize={3}
@@ -307,6 +328,7 @@ export default function Shorts() {
                         description={video.short_description || undefined}
                         author={video.creator?.title || undefined}
                         skipSegments={video.sponsorblocks}
+                        onControlsFade={setControlsVisible}
                       />
                     ) : (
                       <View className="h-full w-full items-center justify-center">
@@ -314,9 +336,13 @@ export default function Shorts() {
                       </View>
                     )}
 
-                    {!isFullscreen && !isPip && (
+                    {!isFullscreen && !isPip && controlsVisible && (
                       <>
-                        <View className="pointer-events-none absolute left-4 right-12 top-4 z-10">
+                        <View
+                          className={cn(
+                            `pointer-events-none absolute left-4 right-12 top-4 z-10`,
+                            interactionBottom
+                          )}>
                           <Text
                             className="text-base font-semibold text-white drop-shadow-md"
                             style={{
@@ -327,7 +353,11 @@ export default function Shorts() {
                           </Text>
                         </View>
 
-                        <View className="absolute bottom-16 right-1 z-10 items-center justify-center gap-4">
+                        <View
+                          className={cn(
+                            'absolute right-1 z-10 items-center justify-center gap-4',
+                            interactionBottom
+                          )}>
                           <Pressable className="mb-2 items-center" hitSlop={10}>
                             {video.creator?.avatars?.[0]?.url ? (
                               <Image
