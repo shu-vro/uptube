@@ -60,7 +60,11 @@ export default function Screen() {
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
           if ('type' in item && item.type === 'SHORTS_SHELF') {
-            return <ShortsSection shorts={item.shorts} />;
+            return (
+              <ShortsSection
+                shorts={item.shorts}
+              />
+            );
           }
           return (
             <View className="w-full items-center">

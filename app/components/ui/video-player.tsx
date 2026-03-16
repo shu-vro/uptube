@@ -628,6 +628,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
                   rate={rate}
                   volume={1}
                   muted={audioSrc ? true : muted}
+                  disableFocus={!!audioSrc}
+                  mixWithOthers={audioSrc ? 'mix' : undefined}
                   repeat={loop}
                   onProgress={handleProgress}
                   onLoad={handleLoad}
@@ -657,6 +659,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
                     rate={rate}
                     volume={1}
                     muted={muted}
+                    mixWithOthers="mix"
                     repeat={loop}
                     playInBackground
                     playWhenInactive

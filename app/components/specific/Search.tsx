@@ -162,7 +162,7 @@ export const ShortCard = ({ item, shortIds }: { item: Video; shortIds: string[] 
           pathname: '/(tabs)/shorts',
           params: {
             shortId: item.id,
-            shortIds: shortIds.join(','),
+            ids: shortIds.join(','),
           },
         });
       }}
