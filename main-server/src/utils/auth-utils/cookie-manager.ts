@@ -14,3 +14,7 @@ export function setCookie(
   };
   res.cookie(name, value, cookieOptions);
 }
+
+export function clearCookie(res: Response, name: string) {
+  res.setHeader("Set-Cookie", `${name}=; Max-Age=0; Path=/; HttpOnly`);
+}

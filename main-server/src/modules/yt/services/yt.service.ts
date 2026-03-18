@@ -5,7 +5,7 @@ import { parseDurationToSeconds } from "utils/yt/parseDurationToSeconds";
 import { parseViewCount } from "utils/yt/parseViewCount";
 import { differenceInDays } from "utils/time";
 import { Prisma, Video, VideoType } from "generated/prisma/client";
-import { yt } from "./yt.controller";
+import { yt } from "modules/yt/controllers/yt.controller";
 import _ from "lodash";
 import { XMLParser } from "fast-xml-parser";
 import parseYouTubeChapters from "utils/parse-youtube-chapters";

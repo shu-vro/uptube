@@ -20,6 +20,7 @@
     "@scalar/express-api-reference": "^0.8.40",
     "base64-js": "^1.5.1",
     "bcryptjs": "^3.0.3",
+    "check-password-strength": "^3.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "croner": "^9.1.0",

@@ -13,6 +13,7 @@ import payloadEncryptionMiddleware from "middlewares/utilities/payload-encryptio
 import ENV from "config/env";
 import { apiReference } from "@scalar/express-api-reference";
 import { openapiSpecification } from "config/swagger";
+import setReqVariables from "middlewares/utilities/set-req-variables";
 
 const app = express();
 
@@ -52,9 +53,10 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(validateRequest);
 // app.use(limiter);
 app.use(payloadEncryptionMiddleware);
+app.use(validateRequest);
+app.use(setReqVariables);
 app.use(responseFormat);
 
 app.use("/api/v1", routes_v1);

@@ -19,10 +19,12 @@ export function signToken(
     .encrypt(JSON.stringify(params), ENV.JWT_ENCRYPTION_KEY)
     .toString();
   const token = jwt.sign(
-    { data: encrypted },
+    {
+      data: encrypted,
+    },
     type === "user" ? ENV.JWT_SECRET : ENV.JWT_ADMIN_SECRET,
     {
-      expiresIn: "1w",
+      expiresIn: params?.iat ? params?.iat * 1000 : "1w",
     }
   );
   return token;

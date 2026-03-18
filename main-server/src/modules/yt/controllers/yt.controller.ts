@@ -12,7 +12,10 @@ import {
 } from "youtubei.js/web";
 import { sanitizeYtUrl } from "utils/yt";
 import { Readable } from "stream";
-import { searchYtVideosAndSaveToDB, updateVideo } from "./yt.search.controller";
+import {
+  searchYtVideosAndSaveToDB,
+  updateVideo,
+} from "modules/yt/services/yt.service";
 import { differenceInDays } from "utils/time";
 import _ from "lodash";
 import {

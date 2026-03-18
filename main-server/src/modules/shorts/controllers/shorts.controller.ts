@@ -1,4 +1,4 @@
-import { updateVideo } from "modules/yt/controllers/yt.search.controller";
+import { updateVideo } from "modules/yt/services/yt.service";
 import { asyncHandler } from "utils/async-handler";
 
 export const shortsRandom = asyncHandler(async (req, res) => {
