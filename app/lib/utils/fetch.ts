@@ -1,9 +1,10 @@
 import axios from 'axios';
-import { getItem, getItemSecure } from './async-storage';
+import { getItem, getItemSecure, setItemSecure } from './async-storage';
 import Constants from 'expo-constants';
 import { createNaClKeyPair, decryptHybrid, encryptHybrid } from './encryption';
 import { Platform } from 'react-native';
 import { parseJSON } from './parser';
+import { getCookieHeader, updateStoredCookies } from './cookie-manager';
 
 type RequestOptions = {
   endpoint: string;
@@ -39,12 +40,11 @@ const request = async (
     keyPair: Awaited<ReturnType<typeof createNaClKeyPair>> | null = null;
   try {
     if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
-    // check if local storage has token
-    const tokenFromStorage = await getItemSecure('token');
-    token = token || tokenFromStorage;
+
+    const cookieHeader = await getCookieHeader();
 
     const headers: Record<string, string> = {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
       'X-App-Version': Constants.expoConfig?.version ?? 'unknown',
       'X-Build-Version': Constants.nativeBuildVersion ?? 'unknown',
       'X-Platform': Platform.OS,
@@ -78,7 +78,13 @@ const request = async (
       url,
       data: method !== 'get' ? params : undefined,
       params: method === 'get' ? params : undefined,
+      withCredentials: true,
     });
+
+    if (response.headers['set-cookie']) {
+      await updateStoredCookies(response.headers['set-cookie']);
+    }
+
     if (response.data.success) {
       let data = response.data.data;
       if (needsResponseEncryption && keyPair) {
@@ -88,12 +94,17 @@ const request = async (
       response.data.data = data;
       return full ? response : data;
     }
+
+    // if (response.)
     // API returned but success is false
     if (throwable) {
       throw new Error(response.data?.message || 'API request failed');
     }
     return null;
   } catch (error: any) {
+    if (error.response?.headers['set-cookie']) {
+      await updateStoredCookies(error.response.headers['set-cookie']);
+    }
     console[throwable ? 'log' : 'error']('Error fetching data:', error.message, error);
     if (throwable) {
       throw error;

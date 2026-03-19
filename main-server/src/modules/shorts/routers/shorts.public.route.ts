@@ -9,6 +9,8 @@ const router = Router();
  *   get:
  *     summary: Get a random short
  *     description: Return a single random short from the database.
+ *     tags:
+ *       - Shorts
  *     responses:
  *       200:
  *         description: A random short

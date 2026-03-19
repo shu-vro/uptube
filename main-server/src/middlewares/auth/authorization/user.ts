@@ -3,6 +3,13 @@ import { clearCookie, setCookie } from "utils/auth-utils/cookie-manager";
 import { verifyToken } from "utils/auth-utils/jwt";
 import { generateAccessToken } from "utils/auth-utils/token-generation";
 
+async function setUserToRequest(userId: string) {
+  const user = await global.global.prisma.user.findUnique({
+    where: { id: userId },
+  });
+  return user;
+}
+
 export default async function authorizeUser(
   req: Request,
   res: Response,
@@ -27,6 +34,8 @@ export default async function authorizeUser(
   if (accessToken) {
     const accessTokenValid = verifyToken(accessToken);
     if (accessTokenValid) {
+      const user = await setUserToRequest(accessTokenValid.id);
+      req.user = user;
       return next();
     }
   }
@@ -55,6 +64,9 @@ export default async function authorizeUser(
     setCookie(res, "accessToken", newAccessToken, {
       expires: new Date(Date.now() + 6 * 60 * 60 * 1000), // Match auth service (6h) or reduce to match token life
     });
+
+    const user = await setUserToRequest(decodedRefresh.id);
+    req.user = user;
 
     next();
   } catch (error) {

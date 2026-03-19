@@ -218,7 +218,7 @@ export default function Shorts() {
       'heat_markers' in heatmap;
 
     if (hasHeatMarkers) {
-      setInteractionBottom('bottom-24');
+      setInteractionBottom('bottom-20');
     } else {
       setInteractionBottom('bottom-16');
     }

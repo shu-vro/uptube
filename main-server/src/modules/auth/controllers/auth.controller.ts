@@ -4,11 +4,15 @@ import { passwordHash } from "utils/auth-utils";
 import { loginSchema, registerSchema } from "../validators/auth.validator";
 import { isPasswordStrong } from "utils/auth-utils/password-strength";
 import { generateAccessAndRefreshTokens } from "utils/auth-utils/token-generation";
+import { clearCookie } from "utils/auth-utils/cookie-manager";
 
 export async function login(req: Request, res: Response) {
   const safeParse = loginSchema.safeParse(req.body);
   if (!safeParse.success) {
-    return req._error(`Invalid input: ${safeParse.error.message}`, 400);
+    return req._error(
+      `Invalid input: ${safeParse.error.issues[0].message}`,
+      400
+    );
   }
   const { email, password } = safeParse.data;
 
@@ -20,13 +24,15 @@ export async function login(req: Request, res: Response) {
 
   await authorizeUserOnLogin(user.id, res);
 
-  // generateAccessAndRefreshTokens({ userId: user.id, res, type: "user" });
-  return req._success({ message: "Logged in successfully" });
+  return req._success({ user: { id: user.id } }, 200);
 }
 export async function register(req: Request, res: Response) {
   const safeParse = registerSchema.safeParse(req.body);
   if (!safeParse.success) {
-    return req._error(`Invalid input: ${safeParse.error.message}`, 400);
+    return req._error(
+      `Invalid input: ${safeParse.error.issues[0].message}`,
+      400
+    );
   }
   const { name, email, password } = safeParse.data;
 
@@ -68,5 +74,24 @@ export async function register(req: Request, res: Response) {
     },
   });
 
-  return req._success({ message: "Registered successfully" });
+  return req._success({ user: newUser }, 201);
+}
+
+export async function logout(req: Request, res: Response) {
+  const refreshToken = req.cookies.refreshToken;
+
+  if (refreshToken) {
+    try {
+      await global.prisma.refreshToken.delete({
+        where: { refreshToken },
+      });
+    } catch (error) {
+      // Token might be already deleted or invalid, ignore
+    }
+  }
+
+  clearCookie(res, "accessToken");
+  clearCookie(res, "refreshToken");
+
+  return req._success({ message: "Logged out successfully" });
 }

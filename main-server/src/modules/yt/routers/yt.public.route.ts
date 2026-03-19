@@ -19,6 +19,8 @@ const router = Router();
  *   get:
  *     summary: Get video info
  *     description: Returns parsed video/player information for a YouTube video id.
+ *     tags:
+ *       - Yt
  *     parameters:
  *       - in: query
  *         name: id
@@ -58,6 +60,9 @@ router.get("/video", getVideoInfo);
  *     description: |
  *       Search YouTube for videos matching the query. Results are upserted into the local database
  *       and the response returns the ordered list of videos (creator and thumbnails included).
+ *     tags:
+ *       - Yt
+ *       - Shorts
  *     parameters:
  *       - in: query
  *         name: q
@@ -101,6 +106,9 @@ router.get("/search", searchVideos);
  *   get:
  *     summary: List popular videos (home)
  *     description: Return paginated videos from the database ordered by view_count.
+ *     tags:
+ *       - Yt
+ *       - Shorts
  *     parameters:
  *       - in: query
  *         name: page
@@ -145,6 +153,8 @@ router.get("/home", home);
  *   get:
  *     summary: Show search suggestions
  *     description: Return search suggestions from YouTube for a given query.
+ *     tags:
+ *       - Yt
  *     parameters:
  *       - in: query
  *         name: q
@@ -179,6 +189,8 @@ router.get("/show-suggestions", showSuggestions);
  *   post:
  *     summary: Get download data for a YouTube video
  *     description: Retrieves streaming data for a YouTube video based on the provided ID and optional format options in the request body.
+ *     tags:
+ *       - Yt
  *     parameters:
  *       - in: path
  *         name: id
@@ -330,6 +342,8 @@ router.post("/download-data/:id", getDownloadData);
  *   put:
  *     summary: Update dislike count for a video
  *     description: Updates the dislike count for a given video ID. Checks if the video was disliked recently (within 7 days) to prevent frequent updates.
+ *     tags:
+ *       - Yt
  *     parameters:
  *       - in: path
  *         name: video_id
@@ -385,6 +399,8 @@ router.put("/update-dislikes/:video_id", isEncrypted, updateDislikes);
  *   get:
  *     summary: Do something (example endpoint)
  *     description: An example endpoint that performs a specific action.
+ *     tags:
+ *       - Yt
  *     responses:
  *       200:
  *         description: Successful response with data
@@ -409,6 +425,8 @@ router.get("/do-something", do_something);
  *   get:
  *     summary: Download a YouTube video
  *     description: Streams a YouTube video as binary data. Accepts optional quality/format options as query parameters.
+ *     tags:
+ *       - Yt
  *     parameters:
  *       - in: path
  *         name: video_id
