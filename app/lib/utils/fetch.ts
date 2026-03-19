@@ -1,10 +1,15 @@
 import axios from 'axios';
-import { getItem, getItemSecure, setItemSecure } from './async-storage';
+import { getItem, getItemSecure, mmkvStorage, setItemSecure } from './async-storage';
 import Constants from 'expo-constants';
 import { createNaClKeyPair, decryptHybrid, encryptHybrid } from './encryption';
 import { Platform } from 'react-native';
 import { parseJSON } from './parser';
-import { getCookieHeader, updateStoredCookies } from './cookie-manager';
+import {
+  clearAuthCookies,
+  getCookieHeader,
+  parseCookies,
+  updateStoredCookies,
+} from './cookie-manager';
 
 type RequestOptions = {
   endpoint: string;
@@ -30,6 +35,7 @@ const request = async (
     overrideEncryptedResponsesOnly = false,
   }: RequestOptions
 ) => {
+  clearAuthCookies();
   const url = baseUrl + '/api/' + version + endpoint;
   const FEATURES = await getItem('features');
   const needsResponseEncryption =
@@ -82,6 +88,7 @@ const request = async (
     });
 
     if (response.headers['set-cookie']) {
+      console.log('changing cookie', response.headers['set-cookie']);
       await updateStoredCookies(response.headers['set-cookie']);
     }
 

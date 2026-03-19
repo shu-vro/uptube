@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useColorScheme } from 'nativewind';
 import { Icon } from '@/components/ui/icon';
 
-const THEME_ICONS = {
+export const THEME_ICONS = {
   light: SunIcon,
   dark: MoonStarIcon,
 };

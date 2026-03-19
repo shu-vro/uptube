@@ -1,23 +1,25 @@
-import { getItemSecure, setItemSecure } from './async-storage';
+import { getItemSecure, setItemSecure, removeItemSecure } from './async-storage';
 
-export const parseCookies = (
-  cookieHeader: string[] | string | undefined
-): Record<string, string> => {
-  if (!cookieHeader) return {};
-  const cookies: Record<string, string> = {};
-  const headers = Array.isArray(cookieHeader) ? cookieHeader : [cookieHeader];
+type CookieMap = Record<string, string>;
 
-  headers.forEach((header) => {
-    // Split by ';' to get parts, first part is name=value
-    const parts = header.split(';');
-    const [nameVal] = parts;
-    if (nameVal) {
-      const [key, value] = nameVal.split('=');
-      if (key && value) {
-        cookies[key.trim()] = value.trim();
-      }
-    }
-  });
+export const parseCookies = (setCookieHeader: string[] | string | undefined): CookieMap => {
+  if (!setCookieHeader) return {};
+
+  const cookies: CookieMap = {};
+  const headers = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+
+  for (const header of headers) {
+    const firstPart = header.split(';', 1)[0];
+    const idx = firstPart.indexOf('=');
+
+    if (idx <= 0) continue;
+
+    const key = firstPart.slice(0, idx).trim();
+    const value = firstPart.slice(idx + 1).trim();
+
+    cookies[key] = value;
+  }
+
   return cookies;
 };
 
@@ -25,17 +27,28 @@ export const updateStoredCookies = async (setCookieHeader: string[] | string | u
   if (!setCookieHeader) return;
 
   const newCookies = parseCookies(setCookieHeader);
-  const existingCookies = (await getItemSecure('auth_cookies')) || {};
 
-  const updatedCookies = { ...existingCookies, ...newCookies };
-
-  // Filter out any empty/expired if needed, typically we just overwrite
-  await setItemSecure('auth_cookies', updatedCookies);
+  // Instead of saving the entire cookie jar, specifically save tokens
+  if (newCookies['accessToken']) {
+    await setItemSecure('accessToken', newCookies['accessToken']);
+  }
+  if (newCookies['refreshToken']) {
+    await setItemSecure('refreshToken', newCookies['refreshToken']);
+  }
 };
 
 export const getCookieHeader = async (): Promise<string> => {
-  const cookies = (await getItemSecure('auth_cookies')) || {};
-  return Object.entries(cookies)
-    .map(([key, value]) => `${key}=${value}`)
-    .join('; ');
+  const accessToken = await getItemSecure('accessToken');
+  const refreshToken = await getItemSecure('refreshToken');
+
+  const cookies: string[] = [];
+  if (accessToken) cookies.push(`accessToken=${accessToken}`);
+  if (refreshToken) cookies.push(`refreshToken=${refreshToken}`);
+
+  return cookies.join('; ');
+};
+
+export const clearAuthCookies = async () => {
+  await removeItemSecure('accessToken');
+  await removeItemSecure('refreshToken');
 };

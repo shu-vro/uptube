@@ -24,6 +24,6 @@ export function passwordHash(password: string) {
  * @param hash this thing in database
  * @returns boolean
  */
-export function passwordCompare(password: string, hash: string) {
-  return bcrypt.compare(password, hash);
+export async function passwordCompare(password: string, hash: string) {
+  return await bcrypt.compare(password, hash);
 }

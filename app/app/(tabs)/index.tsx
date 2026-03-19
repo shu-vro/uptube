@@ -60,11 +60,7 @@ export default function Screen() {
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
           if ('type' in item && item.type === 'SHORTS_SHELF') {
-            return (
-              <ShortsSection
-                shorts={item.shorts}
-              />
-            );
+            return <ShortsSection shorts={item.shorts} />;
           }
           return (
             <View className="w-full items-center">
@@ -78,7 +74,7 @@ export default function Screen() {
           }
           return (item as Video).id;
         }}
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 100, paddingHorizontal: 8 }}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
         ListFooterComponent={

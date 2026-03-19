@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { get, post } from '@/lib/utils/fetch';
-import { getItemSecure, removeItemSecure, setItemSecure } from '@/lib/utils/async-storage';
+import { clearAuthCookies } from '@/lib/utils/cookie-manager';
+import { removeItemSecure } from '@/lib/utils/async-storage';
 import { router } from 'expo-router';
 
 type User = {
@@ -26,23 +27,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      // First check if we have a token or cookies stored
-      // The new fetch.ts handles cookies automatically, but we might want to verify session
-      // by calling a /me endpoint or similar if it exists.
-      // For now, let's rely on stored user info or token presence.
+      // Attempt to fetch user profile using cookies
+      // fetch.ts handles cookie injection automatically
+      const userProfile = await get({
+        endpoint: '/protected/users/profile',
+        throwable: true,
+      });
 
-      // Let's assume we store user info in secure storage on login
-      const storedUser = await getItemSecure('user_info');
-      // And check if we have cookies
-      const cookies = await getItemSecure('auth_cookies');
-
-      if (storedUser && cookies) {
-        setUser(storedUser);
+      if (userProfile) {
+        setUser(userProfile);
       } else {
         setUser(null);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
+      console.log('Auth check failed (likely not logged in):', error);
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -63,31 +61,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (response) {
-        // Fetch user details immediately after login to get the user object
-        // Or if the login returns user object, use that.
-        // Assuming login returns { message: "...", user?: ... } or we fetch profile
+        // Login successful, now fetch fresh user profile
+        const userProfile = await get({
+          endpoint: '/protected/users/profile',
+          throwable: true,
+        });
 
-        // Let's fetch profile. Assuming /auth/me or /users/me exists, or just use what we have
-        // Since I don't know the exact endpoint for user profile, I'll assume login returns it
-        // OR I will just store a dummy user for now based on success until I know the /me endpoint.
-        // Wait, looking at the backend code provided earlier, login just returns message.
-        // So I might need to decode the token or fetch user details.
+        console.log('userProfile', userProfile);
 
-        // Ideally, we should fetch user details.
-        // For now, let's just use email from input and generic ID or fetch from a profile endpoint if you implement one.
-        // Actually, the new backend logic I wrote earlier didn't include a /me endpoint explicitly in the snippets,
-        // but `auth.controller.ts` `login` returned `message`.
-
-        // I will optimistically set user based on input for now, but in a real app
-        // you should return user data in login response or fetch it.
-        // Let's simulate caching user info
-
-        // NOTE: You should implement a /me endpoint in backend.
-        // For now, I'll store what I can.
-        const userInfo = { email: data.email, id: 'unknown' };
-        await setItemSecure('user_info', userInfo);
-        setUser(userInfo as User);
-        router.replace('/(tabs)');
+        if (userProfile) {
+          setUser(userProfile);
+          router.replace('/(tabs)');
+        }
       }
     } catch (error: any) {
       console.error('Login failed:', error);
@@ -107,11 +92,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (response) {
-        // After register, usually we are logged in automatically via cookies
-        const userInfo = { email: data.email, name: data.name, id: 'unknown' };
-        await setItemSecure('user_info', userInfo);
-        setUser(userInfo as User);
-        router.replace('/(tabs)');
+        // Register successful and usually auto-logged in, fetch profile
+        const userProfile = await get({
+          endpoint: '/protected/users/profile',
+          throwable: true,
+        });
+
+        if (userProfile) {
+          setUser(userProfile);
+          router.replace('/(tabs)');
+        }
       }
     } catch (error: any) {
       console.error('Register failed:', error.message, error);
@@ -124,12 +114,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setIsLoading(true);
     try {
-      await post({ endpoint: '/auth/logout' });
+      await post({ endpoint: '/public/auth/logout' });
     } catch (e) {
       // ignore
     } finally {
       await removeItemSecure('user_info');
-      await removeItemSecure('auth_cookies');
+      await clearAuthCookies();
       setUser(null);
       setIsLoading(false);
       router.replace('/auth/login');

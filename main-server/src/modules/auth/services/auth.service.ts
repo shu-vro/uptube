@@ -18,7 +18,7 @@ export async function validateUser(email: string, password: string) {
     return null;
   }
 
-  const isPasswordValid = passwordCompare(password, user.password);
+  const isPasswordValid = await passwordCompare(password, user.password);
 
   if (!isPasswordValid) {
     return null;

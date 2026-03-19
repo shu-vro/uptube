@@ -62,6 +62,12 @@ function RootLayoutContent() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="user"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }
