@@ -7,7 +7,7 @@ import ENV from "config/env";
 // const privateKey = b64.fromByteArray(keyPair.secretKey);
 
 const publicKey = ENV.QUERY_PUBLIC_KEY;
-const privateKey = ENV.QUERY_PRIVATE_KEY;
+// const privateKey = ENV.QUERY_PRIVATE_KEY;
 
 const padB64 = (s: string) => s + "=".repeat((4 - (s.length % 4)) % 4);
 const toBase64Url = (b64: string) =>

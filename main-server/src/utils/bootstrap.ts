@@ -27,7 +27,7 @@ import { Log } from "youtubei.js";
         } else {
           const relativeFile = path.relative(
             path.join(process.cwd(), "../"),
-            fileOrMethod
+            fileOrMethod || "unknown"
           );
           original(
             `[${level}][${relativeFile}:${maybeLine}:${maybeColumn}]:`,

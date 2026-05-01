@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 
 export default function isEncrypted(
   req: Request,
-  res: Response,
+  _: Response,
   next: NextFunction
 ) {
   if (req.headers["x-encrypt"] === "1" && req.encrypted) {

@@ -14,7 +14,10 @@ export function parseViewCount(text: string): number | null {
     return Number.isNaN(n) ? null : n;
   }
 
-  const n = parseFloat(m[1]);
+  const numberPart = m[1];
+  if (!numberPart) return null;
+
+  const n = parseFloat(numberPart);
   const suffix = (m[2] || "").toLowerCase();
   const mul: Record<string, number> = { k: 1e3, m: 1e6, b: 1e9, t: 1e12 };
 

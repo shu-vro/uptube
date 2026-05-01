@@ -41,7 +41,7 @@ app.use(
   })
 );
 app.use(express.urlencoded({ extended: true }));
-app.use((req, res, next) => {
+app.use((req, _, next) => {
   Object.defineProperty(req, "query", {
     value: req.query,
     writable: true,
@@ -63,7 +63,7 @@ app.use("/api/v1", routes_v1);
 
 app.use(errorHandler);
 
-app.use((req, res) => {
+app.use((req) => {
   req._error("Not found", 404);
 });
 

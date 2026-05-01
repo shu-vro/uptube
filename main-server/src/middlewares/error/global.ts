@@ -3,9 +3,9 @@ import ApiError from "../../utils/error/ApiError";
 
 const globalErrorHandler = (
   err: ApiError,
-  req: Request,
+  _: Request,
   res: Response,
-  next: NextFunction
+  __: NextFunction
 ) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || "Internal Server Error";

@@ -4,10 +4,6 @@
  * I REPEAT, DO NOT USE THESE CREDENTIALS IN PRODUCTION.
  */
 
-import { config } from "dotenv";
-
-config();
-
 const ENV = Object.freeze({
   PORT: process.env.PORT || 3000,
   NODE_ENV: process.env.NODE_ENV || "development",

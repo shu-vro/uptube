@@ -40,7 +40,7 @@ export default function parseYouTubeChapters(
   const chaptersRaw: Array<{ title: string; start: number }> = [];
   for (const line of lines) {
     const m = line.match(chapterLineRe);
-    if (!m) continue;
+    if (!m || !m[1]) continue;
 
     const timeStr = m[1];
     let title = (m[2] || "").trim();
@@ -63,12 +63,15 @@ export default function parseYouTubeChapters(
 
   if (chapters.length === 0) return [];
 
-  if (requireFirstAtZero && chapters[0].start !== 0) return [];
+  if (requireFirstAtZero && chapters?.[0]?.start !== 0) return [];
 
   // Compute end times
   for (let i = 0; i < chapters.length; i++) {
+    const current = chapters[i];
+    if (!current) continue;
+
     const next = chapters[i + 1];
-    chapters[i].end = next
+    current.end = next
       ? next.start
       : Number.isFinite(videoDurationSeconds) && videoDurationSeconds !== null
       ? videoDurationSeconds
@@ -84,12 +87,18 @@ export default function parseYouTubeChapters(
     // mm:ss or hh:mm:ss
     if (parts.length === 2) {
       const [mm, ss] = parts.map(Number);
+      if ((!ss && ss !== 0) || (!mm && mm !== 0)) return NaN;
       if (ss >= 60) return NaN;
+
       return mm * 60 + ss;
     }
     if (parts.length === 3) {
       const [hh, mm, ss] = parts.map(Number);
+
+      if ((!ss && ss !== 0) || (!mm && mm !== 0) || (!hh && hh !== 0))
+        return NaN;
       if (mm >= 60 || ss >= 60) return NaN;
+
       return hh * 3600 + mm * 60 + ss;
     }
     return NaN;

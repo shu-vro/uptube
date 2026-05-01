@@ -15,10 +15,20 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
     "rootDir": ".",
-    "baseUrl": "./src",
+
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowUnusedLabels": false,
+    "noUncheckedSideEffectImports": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowUnreachableCode": false,
+
+    "noUncheckedIndexedAccess": true,
+    // nouncheckedaccessfromindexsignature: true, --- IGNORE ---
+
     "paths": {
-      "*": ["node_modules/*", "*"],
-      "@/*": ["./*"],
+      "*": ["./src/*"],
+      "@/*": ["./src/*"],
       "@utils/*": ["./utils/*"]
     }
   },

@@ -1,15 +1,8 @@
 import logger from "config/logger/pino.logger";
 import { Request, Response } from "express";
 import { asyncHandler } from "utils/async-handler";
-import { Innertube as asdf, UniversalCache, YTNodes } from "youtubei.js";
-import {
-  Platform,
-  Types,
-  Utils,
-  YT,
-  Constants,
-  Innertube,
-} from "youtubei.js/web";
+import { UniversalCache } from "youtubei.js";
+import { Types, Innertube } from "youtubei.js/web";
 import { sanitizeYtUrl } from "utils/yt";
 import { Readable } from "stream";
 import {
@@ -26,7 +19,7 @@ import {
   searchQuerySchema,
   updateDislikesSchema,
 } from "../validators/yt.validator";
-import { Video, VideoType } from "generated/prisma/client";
+import { VideoType } from "generated/prisma/client";
 import { videoSafeFields } from "utils/safe_fields/video";
 import { JsonValue } from "@prisma/client/runtime/client";
 
@@ -143,7 +136,7 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
 export const searchVideos = asyncHandler(async (req: Request) => {
   const parseResult = searchQuerySchema.safeParse(req.query);
   if (!parseResult.success) {
-    return req._error({ message: parseResult.error.issues[0].message });
+    return req._error({ message: parseResult.error.issues?.[0]?.message });
   }
   const query = parseResult.data.q;
   const limit = parseResult.data.limit;
@@ -177,7 +170,7 @@ type HomeVideo = {
 export const home = asyncHandler(async (req: Request) => {
   const parseResult = paginationSchema.safeParse(req.query);
   if (!parseResult.success) {
-    return req._error({ message: parseResult.error.issues[0].message });
+    return req._error({ message: parseResult.error.issues?.[0]?.message });
   }
   const page = parseResult.data.page;
   const limit = parseResult.data.limit;
@@ -268,7 +261,7 @@ export const getDownloadData = asyncHandler(
   async (req: Request<any, any, Types.FormatOptions>) => {
     const result = idSchema.safeParse(req.params.id);
     if (!result.success) {
-      return req._error({ message: result.error.issues[0].message });
+      return req._error({ message: result.error.issues?.[0]?.message });
     }
     const id = result.data;
     let body = req.body;
@@ -343,13 +336,13 @@ export const downloadVideo = asyncHandler(
   async (req: Request, res: Response) => {
     const parsed = downloadVideoSchema.safeParse(req.params);
     if (!parsed.success) {
-      return req._error({ message: parsed.error.issues[0].message });
+      return req._error({ message: parsed.error.issues?.[0]?.message });
     }
 
     const parsedBody = downloadVideoQualityOptionsSchema.safeParse(req.query);
     if (!parsedBody.success) {
       console.log(parsedBody.error);
-      return req._error({ message: parsedBody.error.issues[0].message });
+      return req._error({ message: parsedBody.error.issues?.[0]?.message });
     }
     const { video_id } = parsed.data;
     let options = parsedBody.data ?? {};

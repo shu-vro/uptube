@@ -22,9 +22,9 @@ export function parseDurationToSeconds(
     const nums = parts.filter(Boolean).map((p) => parseInt(p, 10));
     if (nums.length === 0) return null;
     let seconds = 0;
-    if (nums.length >= 1) seconds += nums[nums.length - 1];
-    if (nums.length >= 2) seconds += nums[nums.length - 2] * 60;
-    if (nums.length >= 3) seconds += nums[nums.length - 3] * 3600;
+    if (nums.length >= 1) seconds += nums[nums.length - 1] || 0;
+    if (nums.length >= 2) seconds += (nums[nums.length - 2] || 0) * 60;
+    if (nums.length >= 3) seconds += (nums[nums.length - 3] || 0) * 3600;
     return seconds;
   }
 

@@ -116,7 +116,7 @@ const request = async (
     if (throwable) {
       throw error;
     }
-    return null;
+    return error?.response?.data || null;
   } finally {
     console.log(method, url, response?.status);
   }

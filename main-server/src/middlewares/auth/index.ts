@@ -28,9 +28,3 @@ export const authenticate = async (
   req.user = user;
   next();
 };
-
-export const authorize = (roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    next();
-  };
-};

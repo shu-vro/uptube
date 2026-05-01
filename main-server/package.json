@@ -12,7 +12,8 @@
     "migrate": "prisma migrate dev",
     "check": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
-    "build": "bun build --compile --minify-whitespace --minify-syntax --target bun --env inline --drop debugger --sourcemap --outfile ./dist/server ./src/server.ts"
+    "build": "bun build --compile --minify-whitespace --minify-syntax --target bun --env disable --drop debugger --sourcemap --outfile ./dist/server ./src/server.ts",
+    "prod": "dotenv -e .env -- ./dist/server"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.3.0",
@@ -25,7 +26,7 @@
     "cors": "^2.8.6",
     "croner": "^9.1.0",
     "crypto-js": "^4.2.0",
-    "dotenv": "^17.2.3",
+    "dotenv-cli": "^11.0.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "express-validator": "^7.3.1",

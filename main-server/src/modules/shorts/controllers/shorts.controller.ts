@@ -1,7 +1,7 @@
 import { updateVideo } from "modules/yt/services/yt.service";
 import { asyncHandler } from "utils/async-handler";
 
-export const shortsRandom = asyncHandler(async (req, res) => {
+export const shortsRandom = asyncHandler(async (req) => {
   const randomShortId =
     global.shortIds[Math.floor(Math.random() * global.shortIds.length)];
   if (!randomShortId) {

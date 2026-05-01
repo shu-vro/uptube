@@ -1,9 +1,6 @@
-import FLAGS from "config/FLAGS";
-import logger from "config/logger/pino.logger";
 import { NextFunction, Request, Response } from "express";
-import { encryptHybrid } from "utils/encryption";
 
-const setReqVariables = (req: Request, res: Response, next: NextFunction) => {
+const setReqVariables = (req: Request, _: Response, next: NextFunction) => {
   req.platform =
     req.header("x-platform")?.trim().substring(0, 100) || "unknown";
   req.appVersion =

@@ -10,7 +10,7 @@ export async function login(req: Request, res: Response) {
   const safeParse = loginSchema.safeParse(req.body);
   if (!safeParse.success) {
     return req._error(
-      `Invalid input: ${safeParse.error.issues[0].message}`,
+      `Invalid input: ${safeParse.error.issues?.[0]?.message}`,
       400
     );
   }
@@ -30,7 +30,7 @@ export async function register(req: Request, res: Response) {
   const safeParse = registerSchema.safeParse(req.body);
   if (!safeParse.success) {
     return req._error(
-      `Invalid input: ${safeParse.error.issues[0].message}`,
+      `Invalid input: ${safeParse.error.issues?.[0]?.message}`,
       400
     );
   }

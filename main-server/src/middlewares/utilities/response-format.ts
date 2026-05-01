@@ -1,5 +1,5 @@
 import FLAGS from "config/FLAGS";
-import logger from "config/logger/pino.logger";
+// import logger from "config/logger/pino.logger";
 import { NextFunction, Request, Response } from "express";
 import { encryptHybrid } from "utils/encryption";
 

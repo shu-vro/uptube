@@ -31,4 +31,4 @@ const videoIdCacheing = async () => {
 
 videoIdCacheing();
 
-const cron = new Cron("*/5 * * * *", videoIdCacheing);
+new Cron("*/5 * * * *", videoIdCacheing);

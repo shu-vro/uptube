@@ -1,7 +1,6 @@
 import logger from "config/logger/pino.logger";
 import { Innertube, YTNodes } from "youtubei.js";
 import { sanitizeYtUrl } from "utils/yt";
-import { parseDurationToSeconds } from "utils/yt/parseDurationToSeconds";
 import { parseViewCount } from "utils/yt/parseViewCount";
 import { differenceInDays } from "utils/time";
 import { Prisma, Video, VideoType } from "generated/prisma/client";
@@ -369,7 +368,11 @@ export async function updateVideo(videoInfo: Video) {
       const nextVideoInfoExtractor = await yt.getShortsVideoInfo(videoInfo.id);
       const nextVideoPayloads = nextVideoInfoExtractor?.watch_next_feed;
 
-      if (nextVideoPayloads && nextVideoPayloads.length) {
+      if (
+        nextVideoPayloads &&
+        nextVideoPayloads.length &&
+        nextVideoPayloads[0]
+      ) {
         const nextVideoDetails =
           nextVideoPayloads[0].payload.unserializedPrefetchData?.playerResponse
             .videoDetails;
@@ -414,7 +417,6 @@ export async function updateVideo(videoInfo: Video) {
           duration: Number(info.basic_info.duration) || 0,
           like_count: String(info.basic_info.like_count || 0),
           keywords: info.basic_info.keywords || [],
-          last_manual_fetch: new Date(),
           heatmap: (info.heat_map as any) || {},
           chapters: {
             deleteMany: {},
@@ -480,7 +482,7 @@ export async function updateVideo(videoInfo: Video) {
                     view_count: video.view_count,
                     thumbnails: _.uniqBy(
                       video.thumbnails.map((thumbnail) => ({
-                        url: thumbnail.url.split("?")[0],
+                        url: thumbnail.url?.split("?")[0],
                         width: thumbnail.width,
                         height: thumbnail.height,
                       })),
@@ -503,7 +505,7 @@ export async function updateVideo(videoInfo: Video) {
                       view_count: video.view_count,
                       thumbnails: _.uniqBy(
                         video.thumbnails.map((thumbnail) => ({
-                          url: thumbnail.url.split("?")[0],
+                          url: thumbnail.url?.split("?")[0],
                           width: thumbnail.width,
                           height: thumbnail.height,
                         })),
