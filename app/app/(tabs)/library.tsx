@@ -11,7 +11,7 @@ import { Text } from '@/components/ui/text';
 import { get } from '@/lib/utils/fetch';
 import { LibraryOverview } from '@/types/library';
 
-export default function BookmarkScreen() {
+export default function LibraryScreen() {
   const isFocused = useIsFocused();
   const { data, error, isLoading, mutate } = useSWR<LibraryOverview>(
     isFocused ? '/protected/library/overview' : null,

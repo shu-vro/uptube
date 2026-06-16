@@ -43,7 +43,7 @@ export default function Layout() {
         }}
       />
       <Tabs.Screen
-        name="bookmark"
+        name="library"
         options={{
           headerShown: false,
           tabBarLabel: 'Bookmark',
