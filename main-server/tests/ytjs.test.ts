@@ -2,6 +2,7 @@ import { describe, expect, beforeAll, test } from "vitest";
 
 import { Innertube, YT, YTMusic, YTNodes } from "youtubei.js";
 
+// ytjs specific code breaks the tests, so we skip them
 const describeYt =
   process.env.RUN_YTJS_TESTS === "true" ? describe : describe.skip;
 

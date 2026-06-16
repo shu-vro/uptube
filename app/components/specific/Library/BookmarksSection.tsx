@@ -126,7 +126,7 @@ function CreateBookmarkSheet({
           value={name}
           onChangeText={setName}
           placeholder="Collection name"
-          className="mb-4 rounded-xl border border-border bg-muted px-4 py-3 text-foreground"
+          className="mb-3 rounded-xl border border-border bg-card px-4 py-3 text-foreground"
           placeholderTextColor="#888"
           autoFocus
         />
