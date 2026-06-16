@@ -2,7 +2,10 @@ import { describe, expect, beforeAll, test } from "vitest";
 
 import { Innertube, YT, YTMusic, YTNodes } from "youtubei.js";
 
-describe("YouTube.js Tests", () => {
+const describeYt =
+  process.env.RUN_YTJS_TESTS === "true" ? describe : describe.skip;
+
+describeYt("YouTube.js Tests", () => {
   let innertube: Innertube;
 
   beforeAll(async () => {
@@ -257,7 +260,7 @@ describe("YouTube.js Tests", () => {
 
       test("Channel#search", async () => {
         const search = await channel.search(
-          "How Does Gravity Escape A Black Hole?"
+          "How Does Gravity Escape A Black Hole?",
         );
         expect(search).toBeDefined();
         expect(search.videos.length).toBeGreaterThan(0);
@@ -266,7 +269,7 @@ describe("YouTube.js Tests", () => {
 
     test("Innertube#getPlaylist", async () => {
       const playlist = await innertube.getPlaylist(
-        "PLsPUh22kYmNBl4h0i4mI5zDflExXJMo_x"
+        "PLsPUh22kYmNBl4h0i4mI5zDflExXJMo_x",
       );
       expect(playlist).toBeDefined();
       expect(playlist.videos.length).toBeGreaterThan(0);
@@ -290,7 +293,7 @@ describe("YouTube.js Tests", () => {
 
     test("Innertube#resolveURL", async () => {
       const resolved = await innertube.resolveURL(
-        "https://www.youtube.com/watch?v=bUHZ2k9DYHY"
+        "https://www.youtube.com/watch?v=bUHZ2k9DYHY",
       );
       expect(resolved).toBeDefined();
       expect(resolved.payload).toBeDefined();
@@ -318,7 +321,7 @@ describe("YouTube.js Tests", () => {
 
     test("Innertube#music.getInfo.MusicResponsiveListItem", async () => {
       const playlist = await innertube.music.getPlaylist(
-        "PLQxo8OvVvJ1WI_Bp67F2wdIl_R2Rc_1-u"
+        "PLQxo8OvVvJ1WI_Bp67F2wdIl_R2Rc_1-u",
       );
       expect(playlist).toBeDefined();
       expect(playlist.header).toBeDefined();
@@ -326,14 +329,14 @@ describe("YouTube.js Tests", () => {
       expect(playlist.contents?.length).toBeGreaterThan(0);
 
       const info = await innertube.music.getInfo(
-        playlist.contents!.first().as(YTNodes.MusicResponsiveListItem)
+        playlist.contents!.first().as(YTNodes.MusicResponsiveListItem),
       );
       expect(info).toBeDefined();
     });
 
     test("Innertube#music.getInfo.NavEndpoint", async () => {
       const playlist = await innertube.music.getPlaylist(
-        "PLQxo8OvVvJ1WI_Bp67F2wdIl_R2Rc_1-u"
+        "PLQxo8OvVvJ1WI_Bp67F2wdIl_R2Rc_1-u",
       );
       expect(playlist).toBeDefined();
       expect(playlist.header).toBeDefined();
@@ -373,7 +376,7 @@ describe("YouTube.js Tests", () => {
 
       beforeAll(async () => {
         search = await innertube.music.search(
-          "Mac Miller - Conversation Pt. 1"
+          "Mac Miller - Conversation Pt. 1",
         );
         expect(search).toBeDefined();
         expect(search.contents).toBeDefined();
@@ -393,7 +396,7 @@ describe("YouTube.js Tests", () => {
         expect(incremental_continuation.contents).toBeDefined();
         expect(incremental_continuation.contents?.contents).toBeDefined();
         expect(
-          incremental_continuation.contents?.contents?.length
+          incremental_continuation.contents?.contents?.length,
         ).toBeGreaterThan(0);
       });
     });
@@ -426,7 +429,7 @@ describe("YouTube.js Tests", () => {
 
     test("Innertube#music.getArtist", async () => {
       const artist = await innertube.music.getArtist(
-        "UC52ZqHVQz5OoGhvbWiRal6g"
+        "UC52ZqHVQz5OoGhvbWiRal6g",
       );
       expect(artist).toBeDefined();
       expect(artist.header).toBeDefined();
@@ -442,7 +445,7 @@ describe("YouTube.js Tests", () => {
 
     test("Innertube#music.getPlaylist", async () => {
       const playlist = await innertube.music.getPlaylist(
-        "PLQxo8OvVvJ1WI_Bp67F2wdIl_R2Rc_1-u"
+        "PLQxo8OvVvJ1WI_Bp67F2wdIl_R2Rc_1-u",
       );
       expect(playlist).toBeDefined();
       expect(playlist.header).toBeDefined();
@@ -470,9 +473,8 @@ describe("YouTube.js Tests", () => {
     });
 
     test("Innertube#music.getSearchSuggestions", async () => {
-      const suggestions = await innertube.music.getSearchSuggestions(
-        "Joji - In Tongues"
-      );
+      const suggestions =
+        await innertube.music.getSearchSuggestions("Joji - In Tongues");
       expect(suggestions).toBeDefined();
       expect(suggestions?.length).toBeGreaterThan(0);
     });
@@ -494,7 +496,7 @@ describe("YouTube.js Tests", () => {
 
     test("Innertube#kids.getChannel", async () => {
       const channel = await innertube.kids.getChannel(
-        "UCpbpfcZfo-hoDAx2m1blFhg"
+        "UCpbpfcZfo-hoDAx2m1blFhg",
       );
       expect(channel).toBeDefined();
       expect(channel.contents).toBeDefined();

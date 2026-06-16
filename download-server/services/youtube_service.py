@@ -73,8 +73,7 @@ def _pick_by_height(
     pool = exact if exact else None
 
     if pool is None:
-        below = [f for f in candidates if (
-            f.get("height") or 0) <= target_height]
+        below = [f for f in candidates if (f.get("height") or 0) <= target_height]
         pool = below if below else candidates
 
     if target_fps is not None:
@@ -99,6 +98,7 @@ def _pick_best_efficiency_video(candidates: list) -> Dict[str, Any]:
         if tbr > 0:
             return height / tbr
         return height
+
     return max(candidates, key=efficiency)
 
 
@@ -109,15 +109,23 @@ def _pick_best_efficiency_audio(candidates: list) -> Dict[str, Any]:
         if size > 0:
             return (abr * abr) / size
         return abr
+
     return max(candidates, key=efficiency)
 
 
 def _filter_by_ext(candidates: list, preferred_ext: Optional[str]) -> list:
     if not preferred_ext:
         return candidates
-    by_ext = [f for f in candidates if (
-        f.get("ext") or "").lower() == preferred_ext.lower()]
+    by_ext = [
+        f for f in candidates if (f.get("ext") or "").lower() == preferred_ext.lower()
+    ]
     return by_ext if by_ext else candidates
+
+
+def _filter_streamable(candidates: list) -> list:
+    """Keep only formats with a direct stream URL."""
+    with_url = [f for f in candidates if f.get("url")]
+    return with_url if with_url else []
 
 
 def _prefer_h264(candidates: list) -> list:
@@ -125,13 +133,16 @@ def _prefer_h264(candidates: list) -> list:
     AV1 (av01) and VP9 (vp09) cause a black screen on iOS regardless of
     resolution — AVPlayer advances time but cannot decode the frames.
     Falls back to all candidates only if no H.264 stream is available."""
-    h264 = [f for f in candidates if (
-        f.get("vcodec") or "").startswith("avc1")]
+    h264 = [f for f in candidates if (f.get("vcodec") or "").startswith("avc1")]
     return h264 if h264 else candidates
 
 
 def pick_format(
-    info: Dict[str, Any], mode: str, quality: str, preferred_ext: Optional[str], device: Optional[str] = None
+    info: Dict[str, Any],
+    mode: str,
+    quality: str,
+    preferred_ext: Optional[str],
+    device: Optional[str] = None,
 ) -> Dict[str, Any]:
     formats = info.get("formats", [])
     if not formats:
@@ -145,13 +156,15 @@ def pick_format(
             for item in formats
             if item.get("acodec") != "none" and item.get("vcodec") == "none"
         ]
+        candidates = _filter_streamable(candidates)
         candidates = _filter_by_ext(candidates, preferred_ext)
         if not candidates:
             raise HTTPException(
-                status_code=404, detail="No audio-only format available")
+                status_code=404, detail="No streamable audio-only format available"
+            )
         if quality == "bestefficiency":
             return _pick_best_efficiency_audio(candidates)
-        if quality == 'worst':
+        if quality == "worst":
             return min(candidates, key=lambda f: (f.get("abr") or 0, f.get("tbr") or 0))
         # resolution-based qualities don't apply to audio — fall through to best
         return max(candidates, key=lambda f: (f.get("abr") or 0, f.get("tbr") or 0))
@@ -162,10 +175,12 @@ def pick_format(
             for item in formats
             if item.get("vcodec") != "none" and item.get("acodec") == "none"
         ]
+        candidates = _filter_streamable(candidates)
         candidates = _filter_by_ext(candidates, preferred_ext)
         if not candidates:
             raise HTTPException(
-                status_code=404, detail="No video-only format available")
+                status_code=404, detail="No streamable video-only format available"
+            )
         if device and device.lower() == "ios":
             candidates = _prefer_h264(candidates)
         if target_height is not None:
@@ -180,10 +195,13 @@ def pick_format(
         for item in formats
         if item.get("vcodec") != "none" and item.get("acodec") != "none"
     ]
+    candidates = _filter_streamable(candidates)
     candidates = _filter_by_ext(candidates, preferred_ext)
     if not candidates:
         raise HTTPException(
-            status_code=404, detail="No combined video+audio format available")
+            status_code=404,
+            detail="No streamable combined video+audio format available",
+        )
     if target_height is not None:
         return _pick_by_height(candidates, target_height, target_fps)
     if quality == "bestefficiency":

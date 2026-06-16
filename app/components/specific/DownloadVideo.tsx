@@ -61,9 +61,15 @@ export default function DownloadVideo({
       const { status: permStatus } = await MediaLibrary.requestPermissionsAsync();
       if (permStatus !== 'granted') throw new Error('Media library permission denied');
 
-      // The stream endpoint pipes ffmpeg-merged video+audio directly
-      const params = new URLSearchParams({ quality });
-      const url = `${downloadBase}/download/video-audio/stream/${videoId}?${params}`;
+      // Resolve a direct muxed media URL first. This is much more reliable for
+      // client-side saving than the ffmpeg pipe stream endpoint.
+      const infoRes = await fetch(
+        `${downloadBase}/download/video-audio/${videoId}?quality=${quality}`
+      );
+      if (!infoRes.ok) throw new Error(`Video info fetch failed: ${infoRes.status}`);
+      const infoJson = await infoRes.json();
+      const url: string = infoJson?.data?.url ?? infoJson?.url;
+      if (!url) throw new Error('No downloadable video URL returned from server');
 
       const dl = createDownloadResumable(
         url,
@@ -172,9 +178,11 @@ export default function DownloadVideo({
     <Sheet
       open={open}
       onClose={() => {
+        // Allow closing the sheet while a download is in progress.
+        // The download keeps running; users can reopen to inspect status.
+        setOpen(false);
         if (!isDownloading) {
           reset();
-          setOpen(false);
         }
       }}>
       <Text variant="h2" className="mb-3">

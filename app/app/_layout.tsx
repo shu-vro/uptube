@@ -68,6 +68,12 @@ function RootLayoutContent() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="library"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

@@ -8,14 +8,17 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
+  id           String         @id @default(cuid())
+  email        String         @unique
   name         String?
   password     String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  extra        Json?         @default("{}")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  extra        Json?          @default("{}")
   refreshToken RefreshToken?
+  likes        UserLike[]
+  watchHistory WatchHistory[]
+  bookmarks    Bookmark[]
 }
 
 model RefreshToken {
@@ -34,31 +37,34 @@ enum VideoType {
 }
 
 model Video {
-  id                  String      @id @default(cuid())
+  id                  String         @id @default(cuid())
   title               String
   channel_id          String
   short_description   String?
-  duration            Int         @default(0)
-  view_count          String      @default("0")
-  type                VideoType   @default(VIDEO)
-  keywords            String[]    @default([])
-  like_count          String      @default("0")
+  duration            Int            @default(0)
+  view_count          String         @default("0")
+  type                VideoType      @default(VIDEO)
+  keywords            String[]       @default([])
+  like_count          String         @default("0")
   category            String?
-  extra               Json?       @default("{}")
-  last_manual_fetch   DateTime    @default(now())
-  available_qualities String[]    @default([])
-  thumbnails          Json        @default("[]")
-  sponsorblocks       Json        @default("[]")
+  extra               Json?          @default("{}")
+  last_manual_fetch   DateTime       @default(now())
+  available_qualities String[]       @default([])
+  thumbnails          Json           @default("[]")
+  sponsorblocks       Json           @default("[]")
   chapters            Chapter[]
-  trulyCreatedAt      DateTime    @default(now())
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-  dislike_count       String      @default("0")
-  heatmap             Json?       @default("{}")
+  trulyCreatedAt      DateTime       @default(now())
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  dislike_count       String         @default("0")
+  heatmap             Json?          @default("{}")
   captions            Caption[]
-  creator             Creator     @relation(fields: [channel_id], references: [id])
-  nextEdges           VideoNext[] @relation("FromVideo")
-  prevEdges           VideoNext[] @relation("ToVideo")
+  creator             Creator        @relation(fields: [channel_id], references: [id])
+  nextEdges           VideoNext[]    @relation("FromVideo")
+  prevEdges           VideoNext[]    @relation("ToVideo")
+  likes               UserLike[]
+  watchHistory        WatchHistory[]
+  bookmarkItems       BookmarkItem[]
 
   @@index([channel_id])
   @@index([type])
@@ -115,4 +121,52 @@ model Creator {
   updatedAt          DateTime @updatedAt
   extra              Json?    @default("{}")
   Videos             Video[]
+}
+
+model UserLike {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId, createdAt])
+}
+
+model WatchHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  watchedAt DateTime @default(now()) @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId, watchedAt])
+}
+
+model Bookmark {
+  id        String         @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     BookmarkItem[]
+
+  @@index([userId])
+}
+
+model BookmarkItem {
+  id         String   @id @default(cuid())
+  bookmarkId String
+  videoId    String
+  addedAt    DateTime @default(now())
+  bookmark   Bookmark @relation(fields: [bookmarkId], references: [id], onDelete: Cascade)
+  video      Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([bookmarkId, videoId])
+  @@index([bookmarkId, addedAt])
 }

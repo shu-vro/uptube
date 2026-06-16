@@ -22,6 +22,7 @@ import {
 import { VideoType } from "generated/prisma/client";
 import { videoSafeFields } from "utils/safe_fields/video";
 import { JsonValue } from "@prisma/client/runtime/client";
+import { passwordHash } from "utils/auth-utils";
 
 // Platform.shim.eval = async (
 //   data: Types.BuildScriptResult,
@@ -220,7 +221,7 @@ export const home = asyncHandler(async (req: Request) => {
   } else {
     const shortsIdsSample = _.sampleSize(
       global.shortsIds,
-      Math.floor(limit / 2)
+      Math.floor(limit / 2),
     );
     const shortsVideos = await prisma.video.findMany({
       where: {
@@ -236,7 +237,7 @@ export const home = asyncHandler(async (req: Request) => {
 
   let spanBreaks = [0, 10, 40, 70];
   spanBreaks = spanBreaks.map((b) =>
-    Math.max(0, Math.floor((b / 100) * finalVideos.length))
+    Math.max(0, Math.floor((b / 100) * finalVideos.length)),
   );
 
   let shelf: (HomeVideo | { type: "SHORTS_SHELF"; shorts: HomeVideo[] })[] = [];
@@ -246,11 +247,11 @@ export const home = asyncHandler(async (req: Request) => {
     if (spanBreaks.includes(i)) {
       let arrayOfShorts = finalShorts.splice(
         0,
-        Math.floor(finalShorts.length / spanBreaks.length)
+        Math.floor(finalShorts.length / spanBreaks.length),
       );
       shelf.push({ type: "SHORTS_SHELF", shorts: arrayOfShorts });
       logger.info(
-        `pushing shorts shelf at position ${i} with ${arrayOfShorts.length} shorts`
+        `pushing shorts shelf at position ${i} with ${arrayOfShorts.length} shorts`,
       );
     }
   });
@@ -273,7 +274,7 @@ export const getDownloadData = asyncHandler(
       ...body,
     });
     req._success({ message: "Fetched home feed", data: videoInfo });
-  }
+  },
 );
 
 export const updateDislikes = asyncHandler(async (req: Request) => {
@@ -307,12 +308,12 @@ export const updateDislikes = asyncHandler(async (req: Request) => {
     video.extra !== null &&
     differenceInDays(
       new Date().toISOString(),
-      (video.extra as any).last_disliked_at || new Date(0).toISOString()
+      (video.extra as any).last_disliked_at || new Date(0).toISOString(),
     ) < days
   ) {
     return req._error(
       `You can only dislike a video once every ${days} days`,
-      429
+      429,
     );
   }
 
@@ -368,7 +369,7 @@ export const downloadVideo = asyncHandler(
       res.setHeader("Transfer-Encoding", "chunked");
     }
     Readable.fromWeb(downloadStream as ReadableStream<Uint8Array>).pipe(res);
-  }
+  },
 );
 
 // const info = await yt.getSearchSuggestions("linear algebra");
@@ -437,3 +438,23 @@ export const do_something = asyncHandler(async (req: Request) => {
 
   req._success(videoInfo);
 });
+
+// (async () => {
+//   let t = setInterval(async () => {
+//     const user = await global.prisma.user.findFirst({
+//       where: {
+//         email: "shuvro@uptube.com",
+//       },
+//     });
+//     console.log(user);
+//     if (user) {
+//       user.password = await passwordHash("aA1!aaaaaa");
+//       await global.prisma.user.update({
+//         where: { id: user.id },
+//         data: { password: user.password },
+//       });
+//       console.log("password updated");
+//       clearInterval(t);
+//     }
+//   }, 1000);
+// })();

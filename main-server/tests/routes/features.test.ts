@@ -1,16 +1,14 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import express, { Request, Response, NextFunction } from "express";
+import { describe, it, expect } from "vitest";
+import express, { Request, Response } from "express";
 import request from "supertest";
 import responseFormat from "../../src/middlewares/utilities/response-format";
 import globalErrorHandler from "../../src/middlewares/error/global";
-import { validateRequest } from "../../src/middlewares/error/validation";
 import { CLIENT_FLAGS } from "../../src/config/FLAGS/index";
 
 // Build a minimal app that includes the features route
 function createFeaturesApp() {
   const app = express();
   app.use(express.json());
-  app.use(validateRequest);
   app.use(responseFormat);
 
   // Inline the features route logic (doesn't depend on external services)

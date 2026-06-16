@@ -14,7 +14,7 @@ import {
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
-import { ArrowBigDown, ArrowLeft, Flame, ThumbsDown } from 'lucide-react-native';
+import { ArrowLeft, Flame, ThumbsDown } from 'lucide-react-native';
 import { useState, useCallback } from 'react';
 
 import { Text } from '@/components/ui/text';
@@ -29,7 +29,9 @@ import {
   twoDateDifference,
   formatTime,
 } from '@/lib/utils/number-format';
-import { ThumbsUp, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import VideoActions from '@/components/specific/VideoActions';
+import { useRecordHistory } from '@/hooks/useRecordHistory';
 import { VideoCardGrid } from '@/components/specific/Search';
 import { TranscriptViewer } from '@/components/specific/TranscriptViewer';
 import Sheet from '@/components/ui/sheet';
@@ -95,6 +97,8 @@ export default function VideoDetailScreen() {
     id ? `/public/yt/video?id=${id}` : null,
     (url: string) => get({ endpoint: url })
   );
+
+  useRecordHistory(id);
 
   const dislikesFetchInFlightRef = useRef<string | null>(null);
   const sponsorFetchInFlightRef = useRef<string | null>(null);
@@ -299,24 +303,7 @@ export default function VideoDetailScreen() {
               </View>
 
               {/* Actions */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
-                <Pressable className="mr-4 flex-row items-center gap-1 rounded-full bg-muted px-4 py-2">
-                  <ThumbsUp size={18} color={colors.foreground} />
-                  <Text className="font-medium">{miniNumber(Number(video.like_count) || 0)}</Text>
-                </Pressable>
-                <Pressable className="mr-4 flex-row items-center gap-1 rounded-full bg-muted px-4 py-2">
-                  <ThumbsDown size={18} color={colors.foreground} />
-                  <Text className="font-medium">
-                    {miniNumber(Number(video.dislike_count) || 0)}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  className="mr-4 flex-row items-center gap-1 rounded-full bg-muted px-4 py-2"
-                  onPress={() => setDownloadModalOpen(true)}>
-                  <ArrowBigDown size={24} color={colors.foreground} />
-                  <Text className="font-medium">Download</Text>
-                </Pressable>
-              </ScrollView>
+              <VideoActions video={video} onDownload={() => setDownloadModalOpen(true)} />
 
               {video?.creator && (
                 <View className="mb-6 flex-row items-center justify-between border-y border-border py-3">

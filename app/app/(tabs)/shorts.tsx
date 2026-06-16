@@ -11,17 +11,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import useSWR from 'swr';
-import { ArrowBigDown, DownloadIcon, ThumbsDown, ThumbsUp } from 'lucide-react-native';
+import { ArrowBigDown, Flame } from 'lucide-react-native';
+import VideoActions from '@/components/specific/VideoActions';
+import { useRecordHistory } from '@/hooks/useRecordHistory';
 import Constants from 'expo-constants';
 
 import { Text } from '@/components/ui/text';
 import VideoPlayer, { SettingsButton, VideoPlayerHandle } from '@/components/ui/video-player';
-import { miniNumber } from '@/lib/utils/number-format';
 import { get } from '@/lib/utils/fetch';
 import { Video } from '@/types/prisma';
 import DownloadVideo from '@/components/specific/DownloadVideo';
 import Sheet from '@/components/ui/sheet';
-import { Flame } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 
 type ShortsParams = {
@@ -248,6 +248,9 @@ export default function Shorts() {
     }
   );
 
+  const currentVideoId = queueIds[currentIndex];
+  useRecordHistory(currentVideoId, 2000);
+
   const bottomSpace = insets.bottom + 80;
   const topSpace = insets.top;
   const fullscreenBottomOffset = isFullscreen ? Math.max(insets.bottom || 0, 24) : 0;
@@ -371,26 +374,11 @@ export default function Shorts() {
                               <View className="h-10 w-10 rounded-full border border-white/20 bg-white/20" />
                             )}
                           </Pressable>
-                          <Pressable className="items-center" hitSlop={10}>
-                            <ThumbsUp size={24} color="white" />
-                            <Text className="mt-1 text-xs text-white drop-shadow-md">
-                              {miniNumber(Number(video.like_count) || 0)}
-                            </Text>
-                          </Pressable>
-
-                          <Pressable className="items-center" hitSlop={10}>
-                            <ThumbsDown size={24} color="white" />
-                            <Text className="mt-1 text-xs text-white drop-shadow-md">
-                              {miniNumber(Number(video.dislike_count) || 0)}
-                            </Text>
-                          </Pressable>
-
-                          <Pressable
-                            className="items-center"
-                            hitSlop={10}
-                            onPress={() => setOpenDownload(true)}>
-                            <DownloadIcon size={24} color="white" />
-                          </Pressable>
+                          <VideoActions
+                            video={video}
+                            variant="overlay"
+                            onDownload={() => setOpenDownload(true)}
+                          />
                         </View>
                       </>
                     )}
