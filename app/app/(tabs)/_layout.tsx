@@ -46,7 +46,7 @@ export default function Layout() {
         name="library"
         options={{
           headerShown: false,
-          tabBarLabel: 'Bookmark',
+          tabBarLabel: 'Library',
           tabBarIcon: ({ color, size }) => <Lucide name="bookmark" size={size} color={color} />,
         }}
       />

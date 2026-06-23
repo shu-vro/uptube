@@ -416,7 +416,8 @@ export const do_something = asyncHandler(async (req: Request) => {
   // const videos = await yt.search("Typescript", {
   //   type: "all",
   // });
-  const videoInfo = await yt.getShortsVideoInfo(videoId);
+  // const videoInfo = await yt.getShortsVideoInfo(videoId);
+  const videoInfo = await yt.getChannel("UC4MZ7zUHb5eAxU75Dc_nqdQ");
 
   // const videoInfo = await yt.actions.execute("/player", {
   //   videoId,
