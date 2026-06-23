@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import useSWR from 'swr';
 import { ArrowBigDown, Flame } from 'lucide-react-native';
 import VideoActions from '@/components/specific/VideoActions';
@@ -250,6 +250,14 @@ export default function Shorts() {
 
   const currentVideoId = queueIds[currentIndex];
   useRecordHistory(currentVideoId, 2000);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        playerRef.current?.pause();
+      };
+    }, [])
+  );
 
   const bottomSpace = insets.bottom + 80;
   const topSpace = insets.top;
