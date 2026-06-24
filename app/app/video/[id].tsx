@@ -14,9 +14,10 @@ import {
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
-import { ArrowLeft, Flame, ThumbsDown } from 'lucide-react-native';
+import { ArrowLeft, Flame, Home, ThumbsDown } from 'lucide-react-native';
 import { useState, useCallback } from 'react';
 
+import Logo from '@/assets/icons/original.svg';
 import { Text } from '@/components/ui/text';
 import { get, post, put } from '@/lib/utils/fetch';
 import { Video } from '@/types/prisma';
@@ -250,9 +251,19 @@ export default function VideoDetailScreen() {
             className="mr-3 rounded-full p-2 active:bg-muted">
             <ArrowLeft size={24} color={colors.foreground} />
           </Pressable>
-          <Text variant="h4" numberOfLines={1} className="flex-1">
+          <Text variant="h4" numberOfLines={1} className="flex-1 text-center">
             {video.title}
           </Text>
+          {/* <View className="grow flex-row items-center justify-center gap-2">
+            <Logo width={32} height={32} color={THEME[colorScheme ?? 'light'].foreground} />
+            <Text variant="h3">Uptube</Text>
+          </View> */}
+
+          <Pressable
+            onPress={() => router.push('/')}
+            className="mr-0 rounded-full p-2 active:bg-muted">
+            <Home size={24} color={colors.foreground} />
+          </Pressable>
         </View>
       )}
 
@@ -306,7 +317,9 @@ export default function VideoDetailScreen() {
               <VideoActions video={video} onDownload={() => setDownloadModalOpen(true)} />
 
               {video?.creator && (
-                <View className="mb-6 flex-row items-center justify-between border-y border-border py-3">
+                <Pressable
+                  onPress={() => router.push(`/creator/${video.creator!.id}`)}
+                  className="mb-6 flex-row items-center justify-between border-y border-border py-3 active:opacity-80">
                   <View className="mr-4 flex-1 flex-row items-center">
                     {video.creator.avatars &&
                     Array.isArray(video.creator.avatars) &&
@@ -326,7 +339,7 @@ export default function VideoDetailScreen() {
                       </Text>
                     </View>
                   </View>
-                </View>
+                </Pressable>
               )}
 
               <View className="mb-6 rounded-xl bg-muted p-3">

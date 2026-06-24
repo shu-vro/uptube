@@ -57,6 +57,12 @@ function RootLayoutContent() {
         }}
       />
       <Stack.Screen
+        name="creator/[id]"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="auth"
         options={{
           headerShown: false,

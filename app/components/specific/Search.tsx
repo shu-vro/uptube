@@ -86,8 +86,19 @@ export const VideoCardList = ({ item }: { item: Video }) => {
   );
 };
 
-export function VideoCardGrid({ item }: { item: Video }) {
+export function VideoCardGrid({
+  item,
+  hideCreator = false,
+  publishedText,
+}: {
+  item: Video;
+  hideCreator?: boolean;
+  publishedText?: string;
+}) {
   const router = useRouter();
+  const dateLabel =
+    publishedText || (item.createdAt ? distanceFromToday(item.createdAt.toString()) : '');
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -116,19 +127,25 @@ export function VideoCardGrid({ item }: { item: Video }) {
           <Text className="mb-1 text-sm font-semibold leading-4" numberOfLines={2}>
             {item.title}
           </Text>
-          <Text variant="muted" className="mb-1 text-xs" numberOfLines={1}>
-            {item.creator?.title}
-          </Text>
+          {!hideCreator && item.creator?.title ? (
+            <Text variant="muted" className="mb-1 text-xs" numberOfLines={1}>
+              {item.creator.title}
+            </Text>
+          ) : null}
           <View className="flex-row items-center">
             <Text variant="muted" className="text-xs">
               {miniNumber(Number(item.view_count) || 0)} views
             </Text>
-            <Text variant="muted" className="mx-1 text-xs">
-              •
-            </Text>
-            <Text variant="muted" className="text-xs">
-              {distanceFromToday(item.createdAt.toString() || 0)}
-            </Text>
+            {dateLabel ? (
+              <>
+                <Text variant="muted" className="mx-1 text-xs">
+                  •
+                </Text>
+                <Text variant="muted" className="text-xs">
+                  {dateLabel}
+                </Text>
+              </>
+            ) : null}
           </View>
         </CardContent>
       </Card>

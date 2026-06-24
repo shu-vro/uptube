@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   do_something,
   downloadVideo,
+  getCreatorInfo,
   getDownloadData,
   getVideoInfo,
   home,
@@ -52,6 +53,7 @@ const router = Router();
  *         description: Server error
  */
 router.get("/video", getVideoInfo);
+router.get("/creator", getCreatorInfo);
 /**
  * @openapi
  * /api/v1/public/yt/search:

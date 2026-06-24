@@ -8,6 +8,7 @@ import { Readable } from "stream";
 import {
   searchYtVideosAndSaveToDB,
   updateVideo,
+  getCreatorPage,
 } from "modules/yt/services/yt.service";
 import { differenceInDays } from "utils/time";
 import _ from "lodash";
@@ -15,6 +16,7 @@ import {
   downloadVideoQualityOptionsSchema,
   downloadVideoSchema,
   idSchema,
+  creatorPageQuerySchema,
   paginationSchema,
   searchQuerySchema,
   updateDislikesSchema,
@@ -132,6 +134,17 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
   }
 
   req._success(videoInfo);
+});
+
+export const getCreatorInfo = asyncHandler(async (req: Request) => {
+  const parseResult = creatorPageQuerySchema.safeParse(req.query);
+  if (!parseResult.success) {
+    return req._error({ message: parseResult.error.issues?.[0]?.message });
+  }
+
+  const { id: channelId, cursor } = parseResult.data;
+  const creatorPage = await getCreatorPage({ channelId, cursor });
+  req._success(creatorPage);
 });
 
 export const searchVideos = asyncHandler(async (req: Request) => {

@@ -9,8 +9,8 @@ export const searchQuerySchema = z.object({
       val === undefined
         ? 20
         : typeof val === "string"
-        ? parseInt(val || "20", 10)
-        : Number(val)
+          ? parseInt(val || "20", 10)
+          : Number(val),
     ),
 });
 
@@ -22,8 +22,8 @@ export const paginationSchema = z.object({
       val === undefined
         ? 1
         : typeof val === "string"
-        ? parseInt(val || "1", 10)
-        : Number(val)
+          ? parseInt(val || "1", 10)
+          : Number(val),
     ),
   limit: z
     .union([z.string(), z.number()])
@@ -32,19 +32,29 @@ export const paginationSchema = z.object({
       val === undefined
         ? 20
         : typeof val === "string"
-        ? parseInt(val || "20", 10)
-        : Number(val)
+          ? parseInt(val || "20", 10)
+          : Number(val),
     ),
 });
 
 export const idSchema = z.string().min(1, "Video ID is required");
+
+export const channelIdSchema = z
+  .string()
+  .min(1, "Channel ID is required")
+  .regex(/^UC[\w-]{22}$/, "Invalid channel ID");
+
+export const creatorPageQuerySchema = z.object({
+  id: channelIdSchema,
+  cursor: z.string().min(1).optional(),
+});
 
 export const updateDislikesSchema = z.object({
   video_id: idSchema,
   dislike_count: z
     .union([z.string(), z.number()])
     .transform((val) =>
-      Math.max(typeof val === "string" ? parseInt(val, 10) : Number(val), 0)
+      Math.max(typeof val === "string" ? parseInt(val, 10) : Number(val), 0),
     ),
 });
 

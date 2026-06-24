@@ -3,11 +3,22 @@ import { Innertube, YTNodes } from "youtubei.js";
 import { sanitizeYtUrl } from "utils/yt";
 import { parseViewCount } from "utils/yt/parseViewCount";
 import { differenceInDays } from "utils/time";
-import { Prisma, Video, VideoType } from "generated/prisma/client";
+import { Prisma, Video, VideoType, Creator } from "generated/prisma/client";
 import { yt } from "modules/yt/controllers/yt.controller";
 import _ from "lodash";
 import { XMLParser } from "fast-xml-parser";
 import parseYouTubeChapters from "utils/parse-youtube-chapters";
+import {
+  parseChannelProfile,
+  parseVideosFromFeed,
+  extractYoutubeContinuationCursor,
+  encodeCreatorCursor,
+  decodeCreatorCursor,
+  fetchYoutubeContinuationFeed,
+  ParsedChannelProfile,
+  ParsedChannelVideo,
+  CreatorPageCursor,
+} from "utils/yt/parse-channel-info";
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -33,17 +44,17 @@ async function searchYtVideos(yt: Innertube, query: string, limit = 20) {
       (
         (videos?.results ?? []).flatMap((r) =>
           r?.type === "GridShelfView"
-            ? (r as YTNodes.GridShelfView)?.contents ?? []
-            : []
+            ? ((r as YTNodes.GridShelfView)?.contents ?? [])
+            : [],
         ) as YTNodes.ShortsLockupView[]
       )
         .map((v) => v?.on_tap_endpoint?.payload?.videoId)
-        .filter(Boolean)
+        .filter(Boolean),
     );
 
     videoIds = _.uniq(uploadableVideos.map((v) => v.video_id));
     creatorIds = _.uniq(
-      uploadableVideos.map((v) => v.author?.id).filter(Boolean) as string[]
+      uploadableVideos.map((v) => v.author?.id).filter(Boolean) as string[],
     );
   } catch (error) {}
 
@@ -65,7 +76,7 @@ async function upsertMissingCreators({
   if (missingCreatorIds.length === 0) return [];
 
   const channelInfos = await Promise.allSettled(
-    missingCreatorIds.map((id) => yt.getChannel(id))
+    missingCreatorIds.map((id) => yt.getChannel(id)),
   );
 
   const upsertOps = channelInfos.flatMap((info) => {
@@ -77,7 +88,7 @@ async function upsertMissingCreators({
         width: parseInt(t.width?.toString() ?? "0", 10),
         height: parseInt(t.height?.toString() ?? "0", 10),
       })),
-      "url"
+      "url",
     );
     return [
       prisma.creator.upsert({
@@ -151,7 +162,7 @@ async function upsertMissingVideos({
           });
           if (!fetched) {
             logger.warn(
-              `Failed to fetch creator for channel ${videoDetails.channel_id}`
+              `Failed to fetch creator for channel ${videoDetails.channel_id}`,
             );
             return null;
           }
@@ -172,7 +183,7 @@ async function upsertMissingVideos({
                 width: t.width || 0,
                 height: t.height || 0,
               })),
-              "url"
+              "url",
             ),
           },
           create: {
@@ -189,7 +200,7 @@ async function upsertMissingVideos({
                 width: t.width || 0,
                 height: t.height || 0,
               })),
-              "url"
+              "url",
             ),
           },
           include: { creator: true },
@@ -198,7 +209,7 @@ async function upsertMissingVideos({
         logger.warn(`Failed to fetch video ${videoId}:`, error);
         return null;
       }
-    })
+    }),
   );
 
   return prisma.$transaction(
@@ -207,7 +218,7 @@ async function upsertMissingVideos({
         return [prisma.video.upsert(info.value)];
       }
       return [];
-    })
+    }),
   );
 }
 
@@ -222,16 +233,610 @@ async function upsertMissingVideos({
  * 4. upsertMissingVideos   – fetch + save any new videos (needs creator map)
  * 5. Return videos ordered by original search rank
  */
+const CREATOR_DB_BATCH_SIZE = 20;
+
+type CreatorPageResult = {
+  profile: ParsedChannelProfile | null;
+  videos: ParsedChannelVideo[];
+  nextCursor: string | null;
+};
+
+const dbVideoSelect = {
+  id: true,
+  title: true,
+  thumbnails: true,
+  duration: true,
+  view_count: true,
+  trulyCreatedAt: true,
+} as const;
+
+function mapDbVideoToPreview(video: {
+  id: string;
+  title: string;
+  thumbnails: unknown;
+  duration: number;
+  view_count: string;
+  trulyCreatedAt: Date;
+}): ParsedChannelVideo {
+  return {
+    id: video.id,
+    title: video.title,
+    thumbnails: Array.isArray(video.thumbnails)
+      ? (video.thumbnails as ParsedChannelVideo["thumbnails"])
+      : [],
+    duration: video.duration,
+    view_count: video.view_count,
+    published_text: "",
+    createdAt: video.trulyCreatedAt.toISOString(),
+  };
+}
+
+async function fetchDbVideos({
+  channelId,
+  excludeIds = [],
+  dbAfter,
+  take = CREATOR_DB_BATCH_SIZE,
+}: {
+  channelId: string;
+  excludeIds?: string[];
+  dbAfter?: string;
+  take?: number;
+}) {
+  if (dbAfter) {
+    return prisma.video.findMany({
+      where: {
+        channel_id: channelId,
+        type: VideoType.VIDEO,
+        id: {
+          notIn: excludeIds,
+        },
+      },
+      orderBy: [{ trulyCreatedAt: "desc" }, { id: "desc" }],
+      take,
+      skip: 1,
+      cursor: { id: dbAfter },
+      select: dbVideoSelect,
+    });
+  }
+
+  return prisma.video.findMany({
+    where: {
+      channel_id: channelId,
+      type: VideoType.VIDEO,
+      ...(excludeIds.length
+        ? {
+            id: {
+              notIn: excludeIds,
+            },
+          }
+        : {}),
+    },
+    orderBy: [{ trulyCreatedAt: "desc" }, { id: "desc" }],
+    take,
+    select: dbVideoSelect,
+  });
+}
+
+async function hasMoreDbVideos({
+  channelId,
+  dbAfter,
+  excludeIds = [],
+}: {
+  channelId: string;
+  dbAfter?: string;
+  excludeIds?: string[];
+}) {
+  const next = await fetchDbVideos({
+    channelId,
+    dbAfter,
+    excludeIds,
+    take: 1,
+  });
+  return next.length > 0;
+}
+
+async function upsertCreatorProfile(
+  channel: any,
+  profile: ParsedChannelProfile,
+) {
+  const avatars = _.uniqBy(
+    (channel.metadata?.thumbnail || profile.avatars).map(
+      (thumbnail: { url: string; width?: number; height?: number }) => ({
+        url: thumbnail.url.split("?")[0],
+        width: Number(thumbnail.width) || 0,
+        height: Number(thumbnail.height) || 0,
+      }),
+    ),
+    "url",
+  );
+
+  const profileExtra = {
+    banner: profile.banner as Prisma.InputJsonValue,
+    handle: profile.handle,
+    subscriber_count: profile.subscriber_count,
+    video_count: profile.video_count,
+    is_verified: profile.is_verified,
+    last_manual_fetch: new Date().toISOString(),
+  };
+
+  const existing = await prisma.creator.findUnique({
+    where: { id: profile.id },
+    select: { extra: true },
+  });
+
+  const mergedExtra = {
+    ...(typeof existing?.extra === "object" && existing.extra !== null
+      ? existing.extra
+      : {}),
+    ...profileExtra,
+  };
+
+  await prisma.creator.upsert({
+    where: { id: profile.id },
+    update: {
+      title: profile.title,
+      description: profile.description,
+      url: profile.url,
+      vanity_channel_url: profile.vanity_channel_url,
+      avatars: avatars as unknown as Prisma.InputJsonValue,
+      extra: mergedExtra,
+    },
+    create: {
+      id: profile.id,
+      title: profile.title || "Unknown Title",
+      description: profile.description || null,
+      url: profile.url || `https://www.youtube.com/channel/${profile.id}`,
+      vanity_channel_url: profile.vanity_channel_url || null,
+      avatars: avatars as unknown as Prisma.InputJsonValue,
+      extra: profileExtra,
+    },
+  });
+}
+
+function hasFullChannelProfile(creator: Creator) {
+  const extra =
+    typeof creator.extra === "object" && creator.extra !== null
+      ? (creator.extra as Record<string, unknown>)
+      : {};
+
+  return typeof extra.last_manual_fetch === "string";
+}
+
+function shouldRefreshCreator(creator: Creator) {
+  const extra =
+    typeof creator.extra === "object" && creator.extra !== null
+      ? (creator.extra as Record<string, unknown>)
+      : {};
+  const lastFetch =
+    (extra.last_manual_fetch as string | undefined) || creator.createdAt;
+
+  return (
+    differenceInDays(Date.now().toString(), lastFetch.toString()) > 7 ||
+    Math.abs(creator.updatedAt.getTime() - creator.createdAt.getTime()) < 1000
+  );
+}
+
+function getChannelVideoOrder(creator: Creator): string[] {
+  const extra =
+    typeof creator.extra === "object" && creator.extra !== null
+      ? (creator.extra as Record<string, unknown>)
+      : {};
+
+  return Array.isArray(extra.channel_video_order)
+    ? (extra.channel_video_order as string[])
+    : [];
+}
+
+function hasChannelVideoOrder(creator: Creator) {
+  return getChannelVideoOrder(creator).length > 0;
+}
+
+function appendUniqueIds(existing: string[], incoming: string[]) {
+  const seen = new Set(existing);
+  const merged = [...existing];
+
+  for (const id of incoming) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    merged.push(id);
+  }
+
+  return merged;
+}
+
+async function saveChannelVideoOrder(
+  channelId: string,
+  videoIds: string[],
+  mode: "replace" | "append",
+) {
+  if (videoIds.length === 0) return;
+
+  const creator = await prisma.creator.findUnique({
+    where: { id: channelId },
+    select: { extra: true },
+  });
+  if (!creator) return;
+
+  const extra =
+    typeof creator.extra === "object" && creator.extra !== null
+      ? (creator.extra as Record<string, unknown>)
+      : {};
+
+  const existingOrder = Array.isArray(extra.channel_video_order)
+    ? (extra.channel_video_order as string[])
+    : [];
+  const channel_video_order =
+    mode === "replace" ? videoIds : appendUniqueIds(existingOrder, videoIds);
+
+  await prisma.creator.update({
+    where: { id: channelId },
+    data: {
+      extra: {
+        ...extra,
+        channel_video_order,
+      },
+    },
+  });
+}
+
+async function fetchDbVideosInChannelOrder(
+  creator: Creator,
+  offset: number,
+  take = CREATOR_DB_BATCH_SIZE,
+) {
+  const order = getChannelVideoOrder(creator);
+  const ids = order.slice(offset, offset + take);
+  if (ids.length === 0) return [];
+
+  const videos = await prisma.video.findMany({
+    where: {
+      id: { in: ids },
+      channel_id: creator.id,
+      type: VideoType.VIDEO,
+    },
+    select: dbVideoSelect,
+  });
+
+  const videoMap = new Map(videos.map((video) => [video.id, video]));
+
+  return ids
+    .map((id) => videoMap.get(id))
+    .filter((video): video is NonNullable<typeof video> => !!video)
+    .map(mapDbVideoToPreview);
+}
+
+export async function updateCreator(creator: Creator) {
+  if (!shouldRefreshCreator(creator)) return;
+
+  try {
+    logger.info(`Updating creator ${creator.id}`);
+    const channel = await yt.getChannel(creator.id);
+    const profile = parseChannelProfile(channel);
+    await upsertCreatorProfile(channel, profile);
+  } catch (error) {
+    logger.error({ err: error }, `Failed to update creator ${creator.id}`);
+  }
+}
+
+function queueCreatorVideoUpserts(channelId: string, videoIds: string[]) {
+  if (videoIds.length === 0) return Promise.resolve();
+
+  return (async () => {
+    try {
+      const existingVideos = await prisma.video.findMany({
+        where: { id: { in: videoIds } },
+        select: { id: true },
+      });
+      const existingIds = new Set(existingVideos.map((video) => video.id));
+      const missingVideoIds = videoIds.filter((id) => !existingIds.has(id));
+      if (missingVideoIds.length === 0) return;
+
+      const creator = await prisma.creator.findUnique({
+        where: { id: channelId },
+      });
+      if (!creator) return;
+
+      await upsertMissingVideos({
+        yt,
+        missingVideoIds: missingVideoIds.slice(0, 30),
+        existingCreatorMap: new Map([[channelId, creator]]),
+        type: VideoType.VIDEO,
+      });
+    } catch (error) {
+      logger.error(
+        { err: error, channelId },
+        "Failed to upsert channel videos in background",
+      );
+    }
+  })();
+}
+
+function buildNextCursor({
+  phase,
+  yt,
+  dbAfter,
+  orderOffset,
+}: CreatorPageCursor): string | null {
+  if (phase === "yt" && yt) {
+    return encodeCreatorCursor({ phase: "yt", yt, dbAfter });
+  }
+
+  if (phase === "db" && dbAfter) {
+    return encodeCreatorCursor({ phase: "db", dbAfter });
+  }
+
+  if (phase === "order" && orderOffset !== undefined) {
+    return encodeCreatorCursor({ phase: "order", orderOffset });
+  }
+
+  return null;
+}
+
+function buildOrderNextCursor(creator: Creator, nextOffset: number) {
+  const order = getChannelVideoOrder(creator);
+  if (nextOffset >= order.length) return null;
+  return buildNextCursor({ phase: "order", orderOffset: nextOffset });
+}
+
+async function fetchCreatorPageFromYoutube(
+  channelId: string,
+): Promise<CreatorPageResult> {
+  const channel = await yt.getChannel(channelId);
+  const videosTab = await channel.getVideos();
+  const profile = parseChannelProfile(channel);
+  const ytVideos = parseVideosFromFeed(videosTab);
+  const ytCursor = extractYoutubeContinuationCursor(videosTab);
+
+  await upsertCreatorProfile(channel, profile);
+
+  const ytIds = ytVideos.map((video) => video.id);
+  await saveChannelVideoOrder(channelId, ytIds, "replace");
+  const dbVideos = await fetchDbVideos({
+    channelId,
+    excludeIds: ytIds,
+    take: CREATOR_DB_BATCH_SIZE,
+  });
+
+  const lastDbVideo = dbVideos[dbVideos.length - 1];
+  const dbAfter = lastDbVideo?.id;
+
+  await queueCreatorVideoUpserts(channelId, ytIds);
+
+  let nextCursor: string | null = null;
+  if (ytCursor) {
+    nextCursor = buildNextCursor({
+      phase: "yt",
+      yt: ytCursor,
+      dbAfter,
+    });
+  } else if (
+    dbAfter &&
+    (await hasMoreDbVideos({ channelId, dbAfter, excludeIds: ytIds }))
+  ) {
+    nextCursor = buildNextCursor({ phase: "db", dbAfter });
+  }
+
+  return {
+    profile,
+    videos: [...ytVideos, ...dbVideos.map(mapDbVideoToPreview)],
+    nextCursor,
+  };
+}
+
+async function loadInitialCreatorPage(
+  channelId: string,
+): Promise<CreatorPageResult> {
+  const creator = await prisma.creator.findFirst({
+    where: { id: channelId },
+  });
+
+  if (!creator) {
+    return fetchCreatorPageFromYoutube(channelId);
+  }
+
+  if (!hasFullChannelProfile(creator) || !hasChannelVideoOrder(creator)) {
+    return fetchCreatorPageFromYoutube(channelId);
+  }
+
+  if (shouldRefreshCreator(creator)) {
+    updateCreator(creator);
+  }
+
+  return loadCreatorPageFromDbOnly(channelId);
+}
+
+async function loadYoutubeCreatorPage({
+  channelId,
+  cursor,
+}: {
+  channelId: string;
+  cursor: CreatorPageCursor;
+}): Promise<CreatorPageResult> {
+  if (!cursor.yt) {
+    return loadDbCreatorPage({
+      channelId,
+      cursor: { phase: "db", dbAfter: cursor.dbAfter },
+    });
+  }
+
+  const feed = await fetchYoutubeContinuationFeed(yt, cursor.yt);
+  const ytVideos = parseVideosFromFeed(feed);
+  const ytCursor = extractYoutubeContinuationCursor(feed);
+
+  await saveChannelVideoOrder(
+    channelId,
+    ytVideos.map((video) => video.id),
+    "append",
+  );
+
+  queueCreatorVideoUpserts(
+    channelId,
+    ytVideos.map((video) => video.id),
+  );
+
+  let nextCursor: string | null = null;
+  if (ytCursor) {
+    nextCursor = buildNextCursor({
+      phase: "yt",
+      yt: ytCursor,
+      dbAfter: cursor.dbAfter,
+    });
+  } else if (
+    cursor.dbAfter &&
+    (await hasMoreDbVideos({ channelId, dbAfter: cursor.dbAfter }))
+  ) {
+    nextCursor = buildNextCursor({ phase: "db", dbAfter: cursor.dbAfter });
+  }
+
+  return {
+    profile: null,
+    videos: ytVideos,
+    nextCursor,
+  };
+}
+
+async function loadDbCreatorPage({
+  channelId,
+  cursor,
+}: {
+  channelId: string;
+  cursor: CreatorPageCursor;
+}): Promise<CreatorPageResult> {
+  const dbVideos = await fetchDbVideos({
+    channelId,
+    dbAfter: cursor.dbAfter,
+    take: CREATOR_DB_BATCH_SIZE,
+  });
+
+  const lastDbVideo = dbVideos[dbVideos.length - 1];
+  let nextCursor: string | null = null;
+
+  if (
+    lastDbVideo &&
+    (await hasMoreDbVideos({ channelId, dbAfter: lastDbVideo.id }))
+  ) {
+    nextCursor = buildNextCursor({ phase: "db", dbAfter: lastDbVideo.id });
+  }
+
+  return {
+    profile: null,
+    videos: dbVideos.map(mapDbVideoToPreview),
+    nextCursor,
+  };
+}
+
+async function loadCreatorPageFromDbOnly(
+  channelId: string,
+  cursor?: CreatorPageCursor,
+): Promise<CreatorPageResult> {
+  const creator = await prisma.creator.findFirst({
+    where: { id: channelId },
+  });
+
+  if (!creator) {
+    throw new Error("Channel not found");
+  }
+
+  const extra = (creator.extra as Record<string, any>) || {};
+  const orderOffset = cursor?.phase === "order" ? (cursor.orderOffset ?? 0) : 0;
+
+  const videos = hasChannelVideoOrder(creator)
+    ? await fetchDbVideosInChannelOrder(creator, orderOffset)
+    : (
+        await fetchDbVideos({
+          channelId,
+          dbAfter: cursor?.dbAfter,
+          take: CREATOR_DB_BATCH_SIZE,
+        })
+      ).map(mapDbVideoToPreview);
+
+  let nextCursor: string | null = null;
+  if (hasChannelVideoOrder(creator)) {
+    nextCursor = buildOrderNextCursor(creator, orderOffset + videos.length);
+  } else {
+    const lastDbVideo = videos[videos.length - 1];
+    if (
+      lastDbVideo &&
+      (await hasMoreDbVideos({ channelId, dbAfter: lastDbVideo.id }))
+    ) {
+      nextCursor = buildNextCursor({ phase: "db", dbAfter: lastDbVideo.id });
+    }
+  }
+
+  return {
+    profile: cursor
+      ? null
+      : {
+          id: creator.id,
+          title: creator.title,
+          handle: extra.handle || null,
+          description: creator.description,
+          url: creator.url,
+          vanity_channel_url: creator.vanity_channel_url,
+          avatars: (creator.avatars as ParsedChannelProfile["avatars"]) || [],
+          banner: extra.banner || null,
+          subscriber_count: extra.subscriber_count || null,
+          video_count: extra.video_count || null,
+          is_verified: extra.is_verified || false,
+        },
+    videos,
+    nextCursor,
+  };
+}
+
+export async function getCreatorPage({
+  channelId,
+  cursor,
+}: {
+  channelId: string;
+  cursor?: string | null;
+}): Promise<CreatorPageResult> {
+  if (!cursor) {
+    try {
+      return await loadInitialCreatorPage(channelId);
+    } catch (error) {
+      logger.error(
+        { err: error, channelId },
+        "Failed initial creator page fetch, falling back to DB",
+      );
+      return loadCreatorPageFromDbOnly(channelId);
+    }
+  }
+
+  const decoded = decodeCreatorCursor(cursor);
+  if (!decoded) {
+    return loadInitialCreatorPage(channelId);
+  }
+
+  try {
+    if (decoded.phase === "yt") {
+      return await loadYoutubeCreatorPage({ channelId, cursor: decoded });
+    }
+
+    if (decoded.phase === "order") {
+      return await loadCreatorPageFromDbOnly(channelId, decoded);
+    }
+
+    return await loadDbCreatorPage({ channelId, cursor: decoded });
+  } catch (error) {
+    logger.error(
+      { err: error, channelId, cursor: decoded },
+      "Failed creator page continuation, falling back to DB",
+    );
+    return loadCreatorPageFromDbOnly(channelId, decoded);
+  }
+}
+
 export async function searchYtVideosAndSaveToDB(
   yt: Innertube,
   query: string,
-  limit = 20
+  limit = 20,
 ) {
   // Step 1 – search
   const { videoIds, creatorIds, shortIds } = await searchYtVideos(
     yt,
     query,
-    limit
+    limit,
   );
 
   // Step 2 – check what already exists in DB
@@ -254,7 +859,7 @@ export async function searchYtVideosAndSaveToDB(
   const existingCreatorMap = new Map(existingCreators.map((c) => [c.id, c]));
 
   const missingCreatorIds = creatorIds.filter(
-    (id) => !existingCreatorMap.has(id)
+    (id) => !existingCreatorMap.has(id),
   );
   const missingVideoIds = videoIds.filter((id) => !existingVideoMap.has(id));
   const missingShortIds = shortIds.filter((id) => !existingShortMap.has(id));
@@ -307,7 +912,7 @@ export async function updateVideo(videoInfo: Video) {
   if (
     differenceInDays(
       Date.now().toString(),
-      videoInfo?.last_manual_fetch.toString() || Date.now().toString()
+      videoInfo?.last_manual_fetch.toString() || Date.now().toString(),
     ) > 7 ||
     Math.abs(videoInfo.updatedAt.getTime() - videoInfo.createdAt.getTime()) <
       1000 ||
@@ -327,14 +932,14 @@ export async function updateVideo(videoInfo: Video) {
         } catch (error) {
           logger.error(
             { err: error },
-            `Failed to fetch caption for ${track.language_code}`
+            `Failed to fetch caption for ${track.language_code}`,
           );
         }
-      }) || []
+      }) || [],
     );
 
     const chapters = parseYouTubeChapters(
-      info.basic_info.short_description || ""
+      info.basic_info.short_description || "",
     );
 
     let nextVideos =
@@ -346,7 +951,7 @@ export async function updateVideo(videoInfo: Video) {
           title: video.title.toString(),
           duration: video.duration.seconds,
           view_count: String(
-            parseViewCount(video.short_view_count.text?.toString() || "0") || 0
+            parseViewCount(video.short_view_count.text?.toString() || "0") || 0,
           ),
           thumbnails: _.uniqBy(
             video.thumbnails.map((thumbnail) => ({
@@ -354,7 +959,7 @@ export async function updateVideo(videoInfo: Video) {
               width: thumbnail.width,
               height: thumbnail.height,
             })),
-            "url"
+            "url",
           ),
           creator: {
             id: video.author.id,
@@ -431,9 +1036,9 @@ export async function updateVideo(videoInfo: Video) {
                 Array.from(
                   new Set(
                     info.streaming_data.adaptive_formats.map(
-                      (e) => e.quality_label
-                    )
-                  )
+                      (e) => e.quality_label,
+                    ),
+                  ),
                 ).filter((e) => !!e) as string[]
               ).concat(["best", "bestefficiency"])
             : [],
@@ -463,7 +1068,7 @@ export async function updateVideo(videoInfo: Video) {
               width: thumbnail.width,
               height: thumbnail.height,
             })) || [],
-            "url"
+            "url",
           ),
           nextEdges: {
             upsert: nextVideos.map((video, i) => ({
@@ -486,7 +1091,7 @@ export async function updateVideo(videoInfo: Video) {
                         width: thumbnail.width,
                         height: thumbnail.height,
                       })),
-                      "url"
+                      "url",
                     ),
                   },
                 },
@@ -509,7 +1114,7 @@ export async function updateVideo(videoInfo: Video) {
                           width: thumbnail.width,
                           height: thumbnail.height,
                         })),
-                        "url"
+                        "url",
                       ),
                       creator: {
                         connectOrCreate: {
