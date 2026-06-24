@@ -284,10 +284,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     //   };
     // }, [showControls]);
 
-    useEffect(() => {
-      console.log(src, audioSrc);
-    }, []);
-
     const isFirstSrcMount = useRef(true);
     useEffect(() => {
       if (isFirstSrcMount.current) {

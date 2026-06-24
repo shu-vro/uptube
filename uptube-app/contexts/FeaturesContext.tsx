@@ -1,7 +1,7 @@
 import ServerMaintenance from '@/components/ui/server-maintainance';
 import { setItem } from '@/lib/utils/async-storage';
 import { get } from '@/lib/utils/fetch';
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import useSWR from 'swr';
 
 type TFeatures = Record<string, any>;
@@ -16,8 +16,11 @@ export default function FeaturesProvider({ children }: { children: React.ReactNo
       setdataFetchFailed(!data);
     },
   });
-  setItem('features', data || null);
-  // console.log(JSON.stringify(data, null, 2), 'from provider');
+  useEffect(() => {
+    if (data) {
+      setItem('features', data);
+    }
+  }, [data]);
   return (
     <Context.Provider value={{ data, mutate }}>
       {!dataFetchFailed && children}

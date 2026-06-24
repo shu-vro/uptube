@@ -110,6 +110,27 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
     },
     include: {
       creator: true,
+    },
+  });
+
+  if (videoInfo) {
+    updateVideo(videoInfo);
+  }
+
+  req._success(videoInfo);
+});
+
+export const getVideoExtended = asyncHandler(async (req: Request) => {
+  const videoId = sanitizeYtUrl(req.query.id as string);
+  if (!videoId) {
+    return req._error("Invalid video ID");
+  }
+
+  const videoInfo = await prisma.video.findFirst({
+    where: {
+      id: videoId,
+    },
+    select: {
       captions: true,
       chapters: true,
       nextEdges: {
@@ -128,10 +149,6 @@ export const getVideoInfo = asyncHandler(async (req: Request) => {
       },
     },
   });
-
-  if (videoInfo) {
-    updateVideo(videoInfo);
-  }
 
   req._success(videoInfo);
 });

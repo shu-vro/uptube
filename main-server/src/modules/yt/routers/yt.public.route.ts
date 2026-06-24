@@ -5,6 +5,7 @@ import {
   getCreatorInfo,
   getDownloadData,
   getVideoInfo,
+  getVideoExtended,
   home,
   searchVideos,
   showSuggestions,
@@ -53,6 +54,7 @@ const router = Router();
  *         description: Server error
  */
 router.get("/video", getVideoInfo);
+router.get("/video/extended", getVideoExtended);
 router.get("/creator", getCreatorInfo);
 /**
  * @openapi

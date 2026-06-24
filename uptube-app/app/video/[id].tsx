@@ -1,25 +1,20 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View,
-  ScrollView,
   ActivityIndicator,
   Pressable,
   Image,
   FlatList,
-  Dimensions,
-  StatusBar,
-  Animated,
   TouchableOpacity,
+  InteractionManager,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import useSWR from 'swr';
-import { ArrowLeft, Flame, Home, ThumbsDown } from 'lucide-react-native';
+import { ArrowLeft, Flame, Home } from 'lucide-react-native';
 import { useState, useCallback } from 'react';
 
-import Logo from '@/assets/icons/original.svg';
 import { Text } from '@/components/ui/text';
-import { get, post, put } from '@/lib/utils/fetch';
+import { put } from '@/lib/utils/fetch';
 import { Video } from '@/types/prisma';
 import { useColorScheme } from 'nativewind';
 import { THEME } from '@/lib/theme';
@@ -33,20 +28,34 @@ import {
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import VideoActions from '@/components/specific/VideoActions';
 import { useRecordHistory } from '@/hooks/useRecordHistory';
+import {
+  usePlayUrls,
+  INITIAL_PLAYBACK_QUALITY,
+  normalizeVideoId,
+  type PlayUrls,
+} from '@/hooks/usePlayUrls';
+import { useVideoDetails } from '@/hooks/useVideoDetails';
 import { VideoCardGrid } from '@/components/specific/Search';
 import { TranscriptViewer } from '@/components/specific/TranscriptViewer';
 import Sheet from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
 import { SwipableTabs } from '@/components/ui/swipable-tabs';
 import { BottomSheetContainer } from '@/components/ui/bottom-sheet-container';
 import { X } from 'lucide-react-native';
 import axios from 'axios';
 import { ISponsorBlockSegment } from '@/types/sponsorblock';
 import DownloadVideo from '@/components/specific/DownloadVideo';
-import Constants from 'expo-constants';
 
 export default function VideoDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const {
+    id: rawId,
+    previewTitle,
+    previewThumbnail,
+  } = useLocalSearchParams<{
+    id: string;
+    previewTitle?: string;
+    previewThumbnail?: string;
+  }>();
+  const id = normalizeVideoId(rawId);
   const router = useRouter();
   const { colorScheme } = useColorScheme();
   const colors = THEME[colorScheme ?? 'light'];
@@ -57,6 +66,7 @@ export default function VideoDetailScreen() {
   const [activeTab, setActiveTab] = useState<TranscriptToggleType>(null);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [selectedQuality, setSelectedQuality] = useState(INITIAL_PLAYBACK_QUALITY);
   const videoPlayerRef = useRef<VideoPlayerHandle | null>(null);
 
   const [isPip, setIsPip] = useState(false);
@@ -93,11 +103,11 @@ export default function VideoDetailScreen() {
     }, [])
   );
 
-  // Fetch video details
-  const { data, error, isLoading, mutate } = useSWR<Video>(
-    id ? `/public/yt/video?id=${id}` : null,
-    (url: string) => get({ endpoint: url })
-  );
+  // Playback URLs fire immediately from video id — never wait on metadata.
+  const { data: downloadData } = usePlayUrls(id, selectedQuality);
+
+  // Basic metadata first; extended (next videos, captions, chapters) loads in parallel.
+  const { video, basic, extended, isLoading, error, mutateBasic } = useVideoDetails(id);
 
   useRecordHistory(id);
 
@@ -105,18 +115,20 @@ export default function VideoDetailScreen() {
   const sponsorFetchInFlightRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (data) {
+    if (!basic) return;
+
+    const task = InteractionManager.runAfterInteractions(() => {
       (async () => {
         const shouldRefreshDislikes =
-          twoDateDifference(new Date(), new Date(data.extra?.last_disliked_at || 0)) >= 3;
-        if (shouldRefreshDislikes && dislikesFetchInFlightRef.current !== data.id) {
-          dislikesFetchInFlightRef.current = data.id;
+          twoDateDifference(new Date(), new Date(basic.extra?.last_disliked_at || 0)) >= 3;
+        if (shouldRefreshDislikes && dislikesFetchInFlightRef.current !== basic.id) {
+          dislikesFetchInFlightRef.current = basic.id;
           try {
             const dislikes = await axios.get(
-              `https://returnyoutubedislikeapi.com/votes?videoId=${data.id}`
+              `https://returnyoutubedislikeapi.com/votes?videoId=${basic.id}`
             );
 
-            mutate((current) => {
+            mutateBasic((current) => {
               if (!current) return current;
               return {
                 ...current,
@@ -124,14 +136,13 @@ export default function VideoDetailScreen() {
                 extra: { ...current.extra, last_disliked_at: Date.now() },
               };
             }, false);
-            // send this data to server
             try {
               await put({
-                endpoint: `/public/yt/update-dislikes/${data.id}`,
+                endpoint: `/public/yt/update-dislikes/${basic.id}`,
                 params: { dislike_count: dislikes.data.dislikes },
                 throwable: true,
               });
-            } catch (error: any) {}
+            } catch {}
           } catch (error: any) {
             if (error.status !== 200) {
               if (error.status === 429) {
@@ -144,14 +155,13 @@ export default function VideoDetailScreen() {
           }
         }
         const shouldRefreshSponsorBlock =
-          !data.sponsorblocks?.length &&
-          twoDateDifference(new Date(), new Date(data.extra?.last_sponsorblock_at || 0)) >= 3;
-        if (shouldRefreshSponsorBlock && sponsorFetchInFlightRef.current !== data.id) {
-          sponsorFetchInFlightRef.current = data.id;
+          !basic.sponsorblocks?.length &&
+          twoDateDifference(new Date(), new Date(basic.extra?.last_sponsorblock_at || 0)) >= 3;
+        if (shouldRefreshSponsorBlock && sponsorFetchInFlightRef.current !== basic.id) {
+          sponsorFetchInFlightRef.current = basic.id;
           try {
-            console.log(`https://sponsor.ajay.app/api/skipSegments?videoID=${data.id}`);
             const sponsorBlocks = await axios.get(
-              `https://sponsor.ajay.app/api/skipSegments?videoID=${data.id}`
+              `https://sponsor.ajay.app/api/skipSegments?videoID=${basic.id}`
             );
 
             const sponsorData = sponsorBlocks.data.map((s: ISponsorBlockSegment) => ({
@@ -160,9 +170,7 @@ export default function VideoDetailScreen() {
               end: Math.trunc(s.segment[1]) || 0,
             }));
 
-            console.log(sponsorData);
-
-            mutate((current) => {
+            mutateBasic((current) => {
               if (!current) return current;
               return {
                 ...current,
@@ -170,23 +178,13 @@ export default function VideoDetailScreen() {
                 extra: { ...current.extra, last_sponsorblock_at: Date.now() },
               };
             }, false);
-            // // send this data to server
-            // try {
-            //   await put({
-            //     endpoint: `/public/yt/update-dislikes/${data.id}`,
-            //     params: { dislike_count: sponsorBlocks.data.dislikes },
-            //     throwable: true,
-            //   });
-            // } catch (error) {
-            //   //
-            // }
           } catch (error: any) {
             if (error?.status !== 200) {
               if (error?.status === 404) {
-                return console.log('[SPONSORBLOCK]: Video not found on SponsorBlock', data.id);
+                return console.log('[SPONSORBLOCK]: Video not found on SponsorBlock', basic.id);
               }
               if (error?.status === 400) {
-                return console.log('[SPONSORBLOCK]: Bad Request', data.id);
+                return console.log('[SPONSORBLOCK]: Bad Request', basic.id);
               }
               return;
             }
@@ -195,20 +193,14 @@ export default function VideoDetailScreen() {
           }
         }
       })();
-    }
-  }, [data]);
+    });
 
-  const video: Video | undefined = data;
+    return () => task.cancel();
+  }, [basic, mutateBasic]);
 
-  useEffect(() => {
-    if (video?.available_qualities?.length) return;
-    const timeout = setTimeout(async () => {
-      const s = await mutate();
-    }, 3000);
-    return () => clearTimeout(timeout);
-  }, [video]);
+  const showBlockingLoader = isLoading && !basic && !previewThumbnail;
 
-  if (isLoading) {
+  if (showBlockingLoader) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator size="large" color={colors.primary} />
@@ -216,7 +208,7 @@ export default function VideoDetailScreen() {
     );
   }
 
-  if (error || !video) {
+  if ((error || !basic) && !previewThumbnail) {
     return (
       <SafeAreaView className="flex-1 bg-background">
         <View className="flex-1 items-center justify-center px-4">
@@ -233,6 +225,12 @@ export default function VideoDetailScreen() {
       </SafeAreaView>
     );
   }
+
+  const displayTitle = basic?.title || video?.title || previewTitle || 'Video';
+  const displayThumbnail =
+    basic?.thumbnails?.[0]?.url || video?.thumbnails?.[0]?.url || previewThumbnail || undefined;
+  const nextEdges = extended?.nextEdges ?? video?.nextEdges ?? [];
+  const detailsVideo = video ?? basic;
 
   return (
     <SafeAreaView
@@ -252,7 +250,7 @@ export default function VideoDetailScreen() {
             <ArrowLeft size={24} color={colors.foreground} />
           </Pressable>
           <Text variant="h4" numberOfLines={1} className="flex-1 text-center">
-            {video.title}
+            {displayTitle}
           </Text>
           {/* <View className="grow flex-row items-center justify-center gap-2">
             <Logo width={32} height={32} color={THEME[colorScheme ?? 'light'].foreground} />
@@ -268,9 +266,14 @@ export default function VideoDetailScreen() {
       )}
 
       <VideoComponentFull
+        videoId={id}
         isPlayerFullscreen={isPlayerFullscreen}
         isPip={isPip}
-        video={video}
+        video={detailsVideo}
+        downloadData={downloadData}
+        selectedQuality={selectedQuality}
+        setSelectedQuality={setSelectedQuality}
+        displayThumbnail={displayThumbnail}
         isPaused={videoPlayerRef.current?.isPaused}
         onFullScreenChange={onFullScreenChange}
         onPipChange={onPipChange}
@@ -288,7 +291,7 @@ export default function VideoDetailScreen() {
       {!isPlayerFullscreen && !isPip && (
         <FlatList
           className="flex-1"
-          data={video.nextEdges}
+          data={nextEdges}
           keyExtractor={(item) => item.toId}
           renderItem={({ item }) => (
             <View className="px-4">
@@ -296,90 +299,98 @@ export default function VideoDetailScreen() {
             </View>
           )}
           ListHeaderComponent={
-            <View className="p-4">
-              <Text variant="h3" className="mb-2 font-bold leading-tight">
-                {video.title}
-              </Text>
-
-              <View className="mb-4 flex-row flex-wrap items-center">
-                <Text variant="muted" className="text-sm">
-                  {miniNumber(Number(video.view_count) || 0)} views
+            basic ? (
+              <View className="p-4">
+                <Text variant="h3" className="mb-2 font-bold leading-tight">
+                  {basic.title}
                 </Text>
-                <Text variant="muted" className="mx-2 text-sm">
-                  •
-                </Text>
-                <Text variant="muted" className="text-sm">
-                  {distanceFromToday(video.trulyCreatedAt.toString())}
-                </Text>
-              </View>
 
-              {/* Actions */}
-              <VideoActions video={video} onDownload={() => setDownloadModalOpen(true)} />
-
-              {video?.creator && (
-                <Pressable
-                  onPress={() => router.push(`/creator/${video.creator!.id}`)}
-                  className="mb-6 flex-row items-center justify-between border-y border-border py-3 active:opacity-80">
-                  <View className="mr-4 flex-1 flex-row items-center">
-                    {video.creator.avatars &&
-                    Array.isArray(video.creator.avatars) &&
-                    video.creator.avatars[0]?.url ? (
-                      <View className="mr-3 size-10 overflow-hidden rounded-full bg-muted">
-                        <Image
-                          source={{ uri: video.creator.avatars[0].url }}
-                          style={{ width: 40, height: 40 }}
-                        />
-                      </View>
-                    ) : (
-                      <View className="mr-3 size-10 rounded-full bg-muted" />
-                    )}
-                    <View className="flex-1">
-                      <Text className="text-base font-semibold" numberOfLines={1}>
-                        {video.creator.title}
-                      </Text>
-                    </View>
-                  </View>
-                </Pressable>
-              )}
-
-              <View className="mb-6 rounded-xl bg-muted p-3">
-                <Text className="mb-2 font-bold">Description</Text>
-                <Text
-                  variant="default"
-                  numberOfLines={isDescriptionExpanded ? undefined : 2}
-                  className="text-sm italic leading-5">
-                  {video.short_description || 'No description available.'}
-                </Text>
-                <Pressable
-                  onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                  className="mt-2 flex-row items-center">
-                  <Text className="mr-1 text-sm font-bold">
-                    {isDescriptionExpanded ? 'Show less' : 'Show more'}
+                <View className="mb-4 flex-row flex-wrap items-center">
+                  <Text variant="muted" className="text-sm">
+                    {miniNumber(Number(basic.view_count) || 0)} views
                   </Text>
-                  {isDescriptionExpanded ? (
-                    <ChevronUp size={16} color={colors.foreground} />
-                  ) : (
-                    <ChevronDown size={16} color={colors.foreground} />
-                  )}
-                </Pressable>
-              </View>
+                  <Text variant="muted" className="mx-2 text-sm">
+                    •
+                  </Text>
+                  <Text variant="muted" className="text-sm">
+                    {distanceFromToday(basic.trulyCreatedAt.toString())}
+                  </Text>
+                </View>
 
-              <Text variant="h4" className="mb-4 font-bold">
-                Up Next
-              </Text>
-            </View>
+                {/* Actions */}
+                <VideoActions video={basic} onDownload={() => setDownloadModalOpen(true)} />
+
+                {basic?.creator && (
+                  <Pressable
+                    onPress={() => router.push(`/creator/${basic.creator!.id}`)}
+                    className="mb-6 flex-row items-center justify-between border-y border-border py-3 active:opacity-80">
+                    <View className="mr-4 flex-1 flex-row items-center">
+                      {basic.creator.avatars &&
+                      Array.isArray(basic.creator.avatars) &&
+                      basic.creator.avatars[0]?.url ? (
+                        <View className="mr-3 size-10 overflow-hidden rounded-full bg-muted">
+                          <Image
+                            source={{ uri: basic.creator.avatars[0].url }}
+                            style={{ width: 40, height: 40 }}
+                          />
+                        </View>
+                      ) : (
+                        <View className="mr-3 size-10 rounded-full bg-muted" />
+                      )}
+                      <View className="flex-1">
+                        <Text className="text-base font-semibold" numberOfLines={1}>
+                          {basic.creator.title}
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                )}
+
+                <View className="mb-6 rounded-xl bg-muted p-3">
+                  <Text className="mb-2 font-bold">Description</Text>
+                  <Text
+                    variant="default"
+                    numberOfLines={isDescriptionExpanded ? undefined : 2}
+                    className="text-sm italic leading-5">
+                    {basic.short_description || 'No description available.'}
+                  </Text>
+                  <Pressable
+                    onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    className="mt-2 flex-row items-center">
+                    <Text className="mr-1 text-sm font-bold">
+                      {isDescriptionExpanded ? 'Show less' : 'Show more'}
+                    </Text>
+                    {isDescriptionExpanded ? (
+                      <ChevronUp size={16} color={colors.foreground} />
+                    ) : (
+                      <ChevronDown size={16} color={colors.foreground} />
+                    )}
+                  </Pressable>
+                </View>
+
+                <Text variant="h4" className="mb-4 font-bold">
+                  Up Next
+                </Text>
+              </View>
+            ) : (
+              <View className="items-center p-8">
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            )
           }
           contentContainerStyle={{ paddingBottom: 100 }}
         />
       )}
-      <DownloadVideo
-        open={downloadModalOpen}
-        setOpen={setDownloadModalOpen}
-        videoId={id}
-        availableQualities={video.available_qualities}
-        videoTitle={video.title}
-        authorName={video.creator?.title || 'unknown artist'}
-      />
+      {basic ? (
+        <DownloadVideo
+          open={downloadModalOpen}
+          setOpen={setDownloadModalOpen}
+          videoId={id!}
+          availableQualities={basic.available_qualities}
+          videoTitle={basic.title}
+          authorName={basic.creator?.title || 'unknown artist'}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -387,9 +398,14 @@ export default function VideoDetailScreen() {
 type TranscriptToggleType = 'CHAPTER' | 'TRANSCRIPT' | null;
 
 export type VideoComponentProps = {
+  videoId?: string;
   isPlayerFullscreen: boolean;
   isPip: boolean;
-  video: Video;
+  video?: Video;
+  downloadData?: PlayUrls | null;
+  selectedQuality: string;
+  setSelectedQuality: (quality: string) => void;
+  displayThumbnail?: string;
   onFullScreenChange: (isFullscreen: boolean) => void;
   onPipChange: (isActive: boolean) => void;
   onCurrentTimeChange: (time: number) => void;
@@ -405,9 +421,14 @@ export type VideoComponentProps = {
 };
 
 function VideoComponentFull({
+  videoId,
   isPlayerFullscreen,
   isPip,
   video,
+  downloadData,
+  selectedQuality,
+  setSelectedQuality,
+  displayThumbnail,
   onFullScreenChange,
   onPipChange,
   onCurrentTimeChange,
@@ -422,12 +443,41 @@ function VideoComponentFull({
   headerHeight,
 }: VideoComponentProps) {
   const [openQualitySheet, setOpenQualitySheet] = useState(false);
-  const [selectedQuality, setSelectedQuality] = useState('720p');
   const [videoHeight, setVideoHeight] = useState(0);
-  const { id } = useLocalSearchParams<{ id: string }>();
   const videoRef = useRef<VideoPlayerHandle>(null);
   const { colorScheme } = useColorScheme();
   const colors = THEME[colorScheme ?? 'light'];
+  const lockedPlaybackRef = useRef<{
+    videoId: string;
+    quality: string;
+    videoUrl?: string;
+    audioUrl?: string;
+  } | null>(null);
+
+  if (videoId && downloadData?.video_fmt?.url) {
+    const locked = lockedPlaybackRef.current;
+    if (!locked || locked.videoId !== videoId || locked.quality !== selectedQuality) {
+      lockedPlaybackRef.current = {
+        videoId,
+        quality: selectedQuality,
+        videoUrl: downloadData.video_fmt.url,
+        audioUrl: downloadData.audio_fmt?.url,
+      };
+    } else if (!locked.videoUrl) {
+      locked.videoUrl = downloadData.video_fmt.url;
+      locked.audioUrl = downloadData.audio_fmt?.url;
+    }
+  }
+
+  const locked = lockedPlaybackRef.current;
+  const playbackVideoUrl =
+    locked && locked.videoId === videoId && locked.quality === selectedQuality
+      ? locked.videoUrl
+      : downloadData?.video_fmt?.url;
+  const playbackAudioUrl =
+    locked && locked.videoId === videoId && locked.quality === selectedQuality
+      ? locked.audioUrl
+      : downloadData?.audio_fmt?.url;
 
   // Expose all handle methods to parent
   useEffect(() => {
@@ -447,69 +497,57 @@ function VideoComponentFull({
     };
   }, [videoPlayerRef]);
 
-  // fetch download url
-  const { data: downloadData } = useSWR(
-    id ? [`/download/video-audio/separate/${id}`, selectedQuality] : null,
-    async ([url, quality]: [string, string]) => {
-      const result = await get({
-        endpoint: url,
-        params: { quality },
-        baseUrl: Constants.expoConfig?.extra?.UPTUBE_DOWNLOAD_API,
-        overrideEncryptedResponsesOnly: true,
-      });
-      return result || null;
-    }
-  );
-
-  // console.log(JSON.stringify(downloadData?.video_fmt, null, 2));
-
-  const tabs = [
-    {
-      key: 'TRANSCRIPT',
-      title: 'Transcripts',
-      component: (
-        <TranscriptViewer
-          captions={(video.captions as any) || []}
-          currentTime={currentTime}
-          onSeek={onSeek}
-          isPaused={isPaused}
-        />
-      ),
-    },
-    {
-      key: 'CHAPTER',
-      title: 'Chapters',
-      component: (
-        <FlatList
-          data={(video.chapters as any[]) || []}
-          keyExtractor={(item) => item.title + item.start}
-          renderItem={({ item, index }) => {
-            const isActive = currentTime >= item.start && currentTime < item.end;
-            return (
-              <Pressable
-                onPress={() => onSeek(item.start)}
-                className={`flex-row items-center border-b border-border p-4 ${
-                  isActive ? 'bg-primary/20' : ''
-                }`}>
-                <Image
-                  source={{ uri: video.thumbnails?.[0]?.url }}
-                  className="mr-3 h-16 w-28 rounded-md bg-muted"
-                  resizeMode="cover"
-                />
-                <View className="flex-1">
-                  <Text
-                    className={`font-semibold ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                    {item.title}
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">{formatTime(item.start)}</Text>
-                </View>
-              </Pressable>
-            );
-          }}
-        />
-      ),
-    },
-  ];
+  const tabs = video
+    ? [
+        {
+          key: 'TRANSCRIPT',
+          title: 'Transcripts',
+          component: (
+            <TranscriptViewer
+              captions={(video.captions as any) || []}
+              currentTime={currentTime}
+              onSeek={onSeek}
+              isPaused={isPaused}
+            />
+          ),
+        },
+        {
+          key: 'CHAPTER',
+          title: 'Chapters',
+          component: (
+            <FlatList
+              data={(video.chapters as any[]) || []}
+              keyExtractor={(item) => item.title + item.start}
+              renderItem={({ item }) => {
+                const isActive = currentTime >= item.start && currentTime < item.end;
+                return (
+                  <Pressable
+                    onPress={() => onSeek(item.start)}
+                    className={`flex-row items-center border-b border-border p-4 ${
+                      isActive ? 'bg-primary/20' : ''
+                    }`}>
+                    <Image
+                      source={{ uri: video.thumbnails?.[0]?.url }}
+                      className="mr-3 h-16 w-28 rounded-md bg-muted"
+                      resizeMode="cover"
+                    />
+                    <View className="flex-1">
+                      <Text
+                        className={`font-semibold ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                        {item.title}
+                      </Text>
+                      <Text className="text-xs text-muted-foreground">
+                        {formatTime(item.start)}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              }}
+            />
+          ),
+        },
+      ]
+    : [];
 
   return (
     <>
@@ -527,9 +565,9 @@ function VideoComponentFull({
         }}>
         <VideoPlayer
           ref={videoRef}
-          poster={video.thumbnails?.[0]?.url}
-          src={downloadData?.video_fmt?.url}
-          audioSrc={downloadData?.audio_fmt?.url}
+          poster={displayThumbnail || video?.thumbnails?.[0]?.url}
+          src={playbackVideoUrl ?? ''}
+          audioSrc={playbackAudioUrl}
           style={{ width: '100%', height: '100%' }}
           onFullScreenChange={onFullScreenChange}
           onPipChange={onPipChange}
@@ -537,17 +575,17 @@ function VideoComponentFull({
           selectedQuality={selectedQuality}
           setOpenQualitySheet={setOpenQualitySheet}
           onTranscriptToggle={onTranscriptToggle}
-          heatmap={video.heatmap as any}
-          chapters={(video.chapters as Video['chapters']) || []}
-          title={video.title}
-          description={video.short_description || undefined}
-          author={video.creator?.title || undefined}
-          skipSegments={video.sponsorblocks}
+          heatmap={video?.heatmap as any}
+          chapters={(video?.chapters as Video['chapters']) || []}
+          title={video?.title}
+          description={video?.short_description || undefined}
+          author={video?.creator?.title || undefined}
+          skipSegments={video?.sponsorblocks}
         />
       </View>
       <Sheet open={openQualitySheet} onClose={() => setOpenQualitySheet(false)}>
         <Text variant="h3">Available Qualities</Text>
-        {video.available_qualities?.map((q) => (
+        {video?.available_qualities?.map((q) => (
           <SettingsButton
             key={q}
             Icon={Flame}
@@ -561,7 +599,7 @@ function VideoComponentFull({
         ))}
       </Sheet>
 
-      {!isPlayerFullscreen && !isPip && (
+      {!isPlayerFullscreen && !isPip && video && tabs.length > 0 && (
         <BottomSheetContainer
           isOpen={isTranscriptSheetOpen}
           headerHeight={headerHeight}

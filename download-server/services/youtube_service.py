@@ -1,9 +1,23 @@
 import re
+import time
+import asyncio
+from threading import Lock
 from typing import Any, Dict, Optional, Tuple
 
 import yt_dlp
 from fastapi import HTTPException
 from loguru import logger
+
+_VIDEO_INFO_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+_VIDEO_INFO_CACHE_LOCK = Lock()
+_VIDEO_INFO_CACHE_TTL_SECONDS = 10 * 60
+
+
+def _video_id_from_url(video_url: str) -> str:
+    match = re.search(r"(?:v=|youtu\.be/|shorts/)([\w-]{11})", video_url)
+    if not match:
+        raise HTTPException(status_code=400, detail="Invalid YouTube video URL")
+    return match.group(1)
 
 
 def get_video_info(video_url: str) -> Dict[str, Any]:
@@ -50,6 +64,28 @@ def get_video_info(video_url: str) -> Dict[str, Any]:
             status_code=400,
             detail=f"Failed to extract video info: {error}",
         )
+
+
+def get_video_info_cached(video_url: str) -> Dict[str, Any]:
+    video_id = _video_id_from_url(video_url)
+    now = time.time()
+
+    with _VIDEO_INFO_CACHE_LOCK:
+        cached = _VIDEO_INFO_CACHE.get(video_id)
+        if cached and now - cached[0] < _VIDEO_INFO_CACHE_TTL_SECONDS:
+            logger.debug(f"Using cached video info for: {video_id}")
+            return cached[1]
+
+    info = get_video_info(video_url)
+
+    with _VIDEO_INFO_CACHE_LOCK:
+        _VIDEO_INFO_CACHE[video_id] = (now, info)
+
+    return info
+
+
+async def get_video_info_async(video_url: str) -> Dict[str, Any]:
+    return await asyncio.to_thread(get_video_info_cached, video_url)
 
 
 # Parses quality strings like "1080p", "1080p60", "1440p60", "720p"

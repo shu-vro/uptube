@@ -4,12 +4,7 @@ import Constants from 'expo-constants';
 import { createNaClKeyPair, decryptHybrid, encryptHybrid } from './encryption';
 import { Platform } from 'react-native';
 import { parseJSON } from './parser';
-import {
-  clearAuthCookies,
-  getCookieHeader,
-  parseCookies,
-  updateStoredCookies,
-} from './cookie-manager';
+import { getCookieHeader, parseCookies, updateStoredCookies } from './cookie-manager';
 
 type RequestOptions = {
   endpoint: string;
@@ -20,6 +15,7 @@ type RequestOptions = {
   version?: string;
   baseUrl?: string;
   overrideEncryptedResponsesOnly?: boolean;
+  skipRequestEncryption?: boolean;
 };
 
 const request = async (
@@ -33,9 +29,9 @@ const request = async (
     version = 'v1',
     baseUrl = Constants.expoConfig?.extra?.UPTUBE_API,
     overrideEncryptedResponsesOnly = false,
+    skipRequestEncryption = false,
   }: RequestOptions
 ) => {
-  clearAuthCookies();
   const url = baseUrl + '/api/' + version + endpoint;
   const FEATURES = await getItem('features');
   const needsResponseEncryption =
@@ -66,7 +62,7 @@ const request = async (
       headers['X-Encrypted-Responses'] = 'true';
     }
 
-    if (FEATURES?.FEATURE_FLAGS?.ENCRYPT_REQUESTS) {
+    if (FEATURES?.FEATURE_FLAGS?.ENCRYPT_REQUESTS && !skipRequestEncryption) {
       headers['X-Encrypt'] = '1';
       if (params && Object.keys(params).length > 0) {
         const encryptedParams = await encryptHybrid(
@@ -130,6 +126,7 @@ export const get = async ({
   version = 'v1',
   baseUrl,
   overrideEncryptedResponsesOnly = false,
+  skipRequestEncryption = false,
 }: Partial<RequestOptions>) => {
   return await request('get', {
     endpoint,
@@ -140,6 +137,7 @@ export const get = async ({
     version,
     baseUrl,
     overrideEncryptedResponsesOnly,
+    skipRequestEncryption,
   });
 };
 

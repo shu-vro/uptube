@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import useSWR from 'swr';
+import { usePlayUrls } from '@/hooks/usePlayUrls';
 import { ArrowBigDown, Flame } from 'lucide-react-native';
 import VideoActions from '@/components/specific/VideoActions';
 import { useRecordHistory } from '@/hooks/useRecordHistory';
@@ -235,18 +235,7 @@ export default function Shorts() {
     return selectedQualityById[currentVideo.id] || currentVideo.available_qualities?.[0] || '720p';
   }, [currentVideo, selectedQualityById]);
 
-  const { data: downloadData } = useSWR(
-    currentVideo ? [`/download/video-audio/separate/${currentVideo.id}`, selectedQuality] : null,
-    async ([url, quality]: [string, string]) => {
-      const result = await get({
-        endpoint: url,
-        params: { quality },
-        baseUrl: Constants.expoConfig?.extra?.UPTUBE_DOWNLOAD_API,
-        overrideEncryptedResponsesOnly: true,
-      });
-      return result || null;
-    }
-  );
+  const { data: downloadData } = usePlayUrls(currentVideo?.id, selectedQuality);
 
   const currentVideoId = queueIds[currentIndex];
   useRecordHistory(currentVideoId, 2000);

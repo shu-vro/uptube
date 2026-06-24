@@ -16,6 +16,9 @@ import { Skeleton } from '../ui/skeleton';
 import { Video } from '@/types/prisma';
 import { distanceFromToday, miniNumber, numberToTime } from '@/lib/utils/number-format';
 import { useRouter } from 'expo-router';
+import { prefetchVideoBasic } from '@/hooks/useVideoDetails';
+import { prefetchPlayUrls } from '@/hooks/usePlayUrls';
+import { mutate as globalMutate } from 'swr';
 
 const IMAGE_STYLE = StyleSheet.create({
   thumbnail: {
@@ -25,6 +28,12 @@ const IMAGE_STYLE = StyleSheet.create({
   },
 }).thumbnail;
 
+const prefetchVideoScreen = (item: Video) => {
+  void prefetchPlayUrls(item.id);
+  // Warm basic metadata but do not pin stale cache — enrichment polling must revalidate.
+  void globalMutate(`/public/yt/video?id=${item.id}`, () => prefetchVideoBasic(item.id));
+};
+
 export const VideoCardList = ({ item }: { item: Video }) => {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
@@ -33,8 +42,16 @@ export const VideoCardList = ({ item }: { item: Video }) => {
   return (
     <TouchableOpacity
       activeOpacity={0.8}
+      onPressIn={() => prefetchVideoScreen(item)}
       onPress={() => {
-        router.push(`/video/${item.id}`);
+        router.push({
+          pathname: '/video/[id]',
+          params: {
+            id: item.id,
+            previewTitle: item.title,
+            previewThumbnail: item.thumbnails?.[0]?.url,
+          },
+        });
       }}>
       <Card className="mb-3 gap-0 py-2">
         <CardContent className="p-3 py-0">
@@ -102,8 +119,16 @@ export function VideoCardGrid({
   return (
     <TouchableOpacity
       activeOpacity={0.8}
+      onPressIn={() => prefetchVideoScreen(item)}
       onPress={() => {
-        router.push(`/video/${item.id}`);
+        router.push({
+          pathname: '/video/[id]',
+          params: {
+            id: item.id,
+            previewTitle: item.title,
+            previewThumbnail: item.thumbnails?.[0]?.url,
+          },
+        });
       }}>
       <Card className="mb-3 h-auto w-[calc(100%-2rem)]">
         <CardContent className="px-3">

@@ -10,7 +10,7 @@ from config.env import ENV
 from constants.app import YOUTUBE_WATCH_URL
 from lib.utils.format_response import format_response
 from middlewares.rate_limit_middleware import limiter
-from services.youtube_service import get_video_info, pick_format
+from services.youtube_service import get_video_info_async, pick_format
 
 router = APIRouter(prefix="/download", tags=["download"])
 
@@ -30,7 +30,7 @@ async def download_video(
     logger.info(f"Getting video-only URL for: {video_id} (quality: {quality})")
 
     try:
-        info = get_video_info(video_url)
+        info = await get_video_info_async(video_url)
         selected = pick_format(info, "video", quality, format)
         media_url = selected.get("url")
 
@@ -73,7 +73,7 @@ async def download_audio(
     logger.info(f"Getting audio-only URL for: {video_id} (quality: {quality})")
 
     try:
-        info = get_video_info(video_url)
+        info = await get_video_info_async(video_url)
         selected = pick_format(info, "audio", quality, format)
         media_url = selected.get("url")
 
@@ -120,7 +120,7 @@ async def stream_video_audio(
     logger.info(f"Streaming merged video+audio for: {video_id} (quality: {quality})")
 
     try:
-        info = get_video_info(video_url)
+        info = await get_video_info_async(video_url)
         try:
             video_fmt = pick_format(
                 info,
@@ -161,6 +161,7 @@ async def stream_video_audio(
             "video_fmt": video_fmt,
             "audio_fmt": audio_fmt,
         }
+        print(result)
         logger.success(f"Got video+audio URLs for: {info.get('title', 'Unknown')}")
         return format_response(result)
     except HTTPException:
@@ -188,7 +189,7 @@ async def stream_video_audio_merged(
     logger.info(f"Streaming merged video+audio for: {video_id} (quality: {quality})")
 
     try:
-        info = get_video_info(video_url)
+        info = await get_video_info_async(video_url)
         try:
             video_fmt = pick_format(info, "video", quality, video_format)
             audio_fmt = pick_format(info, "audio", "worst", None)
@@ -286,7 +287,7 @@ async def download_video_audio(
     logger.info(f"Getting video+audio URL for: {video_id} (quality: {quality})")
 
     try:
-        info = get_video_info(video_url)
+        info = await get_video_info_async(video_url)
         selected = pick_format(info, "video_audio", quality, format)
         media_url = selected.get("url")
 
