@@ -47,7 +47,7 @@ const shutdown = async () => {
       logger.error(
         `Error during server shutdown: ${
           err instanceof Error ? err.stack || err.message : err
-        }`
+        }`,
       );
       process.exit(1);
     }

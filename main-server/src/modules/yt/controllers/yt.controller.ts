@@ -467,6 +467,17 @@ export const do_something = asyncHandler(async (req: Request) => {
   //   // quality: "hd720",
   // });
 
+  const user = await global.prisma.user.findFirst({
+    where: {
+      email: "shuvro@uptube.com",
+    },
+  });
+
+  if (!user) return;
+
+  user.password = await passwordHash("aA1!aaaaaa");
+  console.log(user);
+
   req._success(videoInfo);
 });
 

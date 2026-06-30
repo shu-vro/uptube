@@ -4,6 +4,26 @@ import { clearCookie, setCookie } from "utils/auth-utils/cookie-manager";
 import { verifyToken } from "utils/auth-utils/jwt";
 import { generateAccessToken } from "utils/auth-utils/token-generation";
 
+function normalizeCookieTokens(
+  refreshTokenRaw?: string,
+  accessTokenRaw?: string,
+) {
+  let refreshToken = refreshTokenRaw?.trim();
+  let accessToken = accessTokenRaw?.trim();
+
+  // Some clients incorrectly send:
+  // refreshToken="<jwt>,accessToken=<jwt>"
+  if (refreshToken?.includes(",accessToken=")) {
+    const [rawRefresh, rawAccess] = refreshToken.split(",accessToken=");
+    refreshToken = rawRefresh?.trim();
+    if (!accessToken && rawAccess) {
+      accessToken = rawAccess.trim();
+    }
+  }
+
+  return { refreshToken, accessToken };
+}
+
 async function setUserToRequest(userId: string) {
   const user = await global.global.prisma.user.findUnique({
     where: { id: userId },
@@ -14,11 +34,31 @@ async function setUserToRequest(userId: string) {
 export default async function authorizeUser(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
-  console.log(req.cookies);
+  const normalized = normalizeCookieTokens(
+    req.cookies.refreshToken,
+    req.cookies.accessToken,
+  );
+  const refreshToken = normalized.refreshToken;
+  let accessToken = normalized.accessToken;
 
-  const refreshToken = req.cookies.refreshToken;
+  if (
+    refreshToken !== req.cookies.refreshToken ||
+    accessToken !== req.cookies.accessToken
+  ) {
+    logger.warn("Recovered malformed auth cookies from client");
+    if (refreshToken) {
+      setCookie(res, "refreshToken", refreshToken, {
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+    }
+    if (accessToken) {
+      setCookie(res, "accessToken", accessToken, {
+        maxAge: 6 * 60 * 60 * 1000,
+      });
+    }
+  }
 
   if (!refreshToken) {
     logger.warn("Authorization failed: No refresh token provided");
@@ -34,7 +74,6 @@ export default async function authorizeUser(
     return req._error("Unauthorized: Invalid refresh token", 401);
   }
 
-  const accessToken = req.cookies.accessToken;
   // If access token is present and valid, proceed
   if (accessToken) {
     const accessTokenValid = verifyToken(accessToken);
@@ -58,7 +97,7 @@ export default async function authorizeUser(
 
     if (!dbRefreshToken || dbRefreshToken.refreshToken !== refreshToken) {
       logger.warn(
-        `Authorization failed: DB refresh token mismatch for user ${decodedRefresh.id}`
+        `Authorization failed: DB refresh token mismatch for user ${decodedRefresh.id}`,
       );
       clearCookie(res, "refreshToken");
       clearCookie(res, "accessToken");
@@ -83,7 +122,7 @@ export default async function authorizeUser(
 
     if (!user) {
       logger.warn(
-        `Authorization failed: User not found for ID ${decodedRefresh.id}`
+        `Authorization failed: User not found for ID ${decodedRefresh.id}`,
       );
       clearCookie(res, "refreshToken");
       clearCookie(res, "accessToken");

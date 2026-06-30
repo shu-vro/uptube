@@ -17,6 +17,11 @@ import setReqVariables from "middlewares/utilities/set-req-variables";
 
 const app = express();
 
+// Ignore browser favicon probes on API server.
+app.get("/favicon.ico", (_, res) => {
+  res.status(204).end();
+});
+
 if (ENV.NODE_ENV === "development") {
   app.use(
     "/reference",
@@ -26,7 +31,7 @@ if (ENV.NODE_ENV === "development") {
       },
       content: openapiSpecification,
       pageTitle: "API Reference - Uptube",
-    })
+    }),
   );
 }
 
@@ -38,7 +43,7 @@ app.use(cookieParser());
 app.use(
   express.json({
     limit: "2mb",
-  })
+  }),
 );
 app.use(express.urlencoded({ extended: true }));
 app.use((req, _, next) => {
