@@ -18,8 +18,6 @@ export async function validateUser(email: string, password: string) {
     return null;
   }
 
-  return user;
-
   const isPasswordValid = await passwordCompare(password, user.password);
 
   if (!isPasswordValid) {
